@@ -14,7 +14,7 @@ from routers.investors import router as investors_router
 from routers.roadmap import router as roadmap_router
 from routers.startups import router as startups_router
 from routers.templates import router as templates_router
-
+from routers.research import router as research_router
 
 
 settings = get_settings()
@@ -91,6 +91,7 @@ app.include_router(compare_router)
 app.include_router(roadmap_router)
 app.include_router(cofounders_router)
 app.include_router(investors_router)
+app.include_router(research_router)
 
 
 # Route for Health Checking

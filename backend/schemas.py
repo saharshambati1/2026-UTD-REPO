@@ -3,6 +3,18 @@ from typing import List, Optional, Literal
 from datetime import datetime
 from uuid import UUID
 
+
+from pydantic import BaseModel, Field
+from typing import List
+
+class WeekPlan(BaseModel):
+    week_number: int = Field(..., description="Week number from 1 to 20")
+    focus: str = Field(..., description="The main theme of the week (e.g., 'MVP Development' or 'Launch')")
+    action_items: List[str] = Field(..., description="3-5 highly specific tasks to complete this week")
+    due_date_offset_days: int = Field(..., description="Days from start date this week concludes")
+
+class StartupRoadmap(BaseModel):
+    roadmap: List[WeekPlan] = Field(..., description="Exactly 20 weeks of planning, ending with marketing and launch.")
 class UserBase(BaseModel):
     full_name: str
     college: str
@@ -45,7 +57,6 @@ class OrganizationBase(BaseModel):
     roles_needed: List[str] = Field(default_factory=list)
     funding_stage: Optional[str] = None
     
-    # The rolling master summary that the LLM constantly overwrites
     current_state_summary: Optional[str] = None
 
 class OrganizationCreate(OrganizationBase):

@@ -8,6 +8,7 @@ from uuid import UUID
 # ==========================================
 class UserBase(BaseModel):
     full_name: str
+    college: str
     major: Optional[str] = None
     grad_year: Optional[int] = None
     gpa_range: Optional[str] = None

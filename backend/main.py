@@ -16,6 +16,8 @@ from routers.roadmap import router as roadmap_router
 from routers.startups import router as startups_router
 from routers.templates import router as templates_router
 from routers.research import router as research_router
+from routers.community import router as community_router
+
 
 
 settings = get_settings()
@@ -85,28 +87,6 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 # Extends all routes for backend
-app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
-app.include_router(advisor.router, prefix="/api/advisor", tags=["Advisor"])
-app.include_router(simulate.router, prefix="/api/simulate", tags=["Simulator"])
-app.include_router(tax.router, prefix="/api/tax", tags=["Tax"])
-app.include_router(documents.router, prefix="/api/documents", tags=["Documents"])
-app.include_router(stocks.router, prefix="/api/stocks", tags=["Stocks"])
-app.include_router(narrate.router, prefix="/api/narrate", tags=["Narrate"])
-app.include_router(glossary.router, prefix="/api/glossary", tags=["Glossary"])
-app.include_router(health.router, prefix="/api/health", tags=["Health"])
-app.include_router(budget.router, prefix="/api/budget", tags=["Budget"])
-app.include_router(macro.router, prefix="/api/macro", tags=["Macro"])
-app.include_router(users.router, prefix="/api/users", tags=["Users"])
-app.include_router(assets.router, prefix="/api/assets", tags=["Assets"])
-app.include_router(debts.router, prefix="/api/debts", tags=["Debts"])
-app.include_router(goals.router, prefix="/api/goals", tags=["Goals"])
-app.include_router(transactions.router, prefix="/api/transactions", tags=["Transactions"])
-app.include_router(alerts.router, prefix="/api/alerts", tags=["Alerts"])
-app.include_router(paper_trading.router, prefix="/api/paper-trading", tags=["Paper Trading"])
-app.include_router(education.router, prefix="/api/education", tags=["Education"])
-app.include_router(journal.router, prefix="/api/journal", tags=["Decision Journal"])
-app.include_router(community.router, prefix="/api/community", tags=["Community"])
-app.include_router(bills.router, prefix="/api/bills", tags=["Bills"])
 app.include_router(rag_router)
 app.include_router(templates_router)
 app.include_router(startups_router)
@@ -115,6 +95,8 @@ app.include_router(roadmap_router)
 app.include_router(cofounders_router)
 app.include_router(investors_router)
 app.include_router(research_router)
+app.include_router(community_router)
+
 
 
 # Route for Health Checking

@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from services.research_service import ResearchService
 from schemas import EmailGenerationRequest 
 
-router = APIRouter(prefix="/research", tags=["Research Hub"])
+router = APIRouter(prefix="/api/research", tags=["Research Hub"])
 
 @router.post("/match/{user_id}")
 async def onboard_and_match(user_id: str, file: UploadFile = File(...)):

@@ -170,3 +170,8 @@ serviceAccountKey.json
 firebase-adminsdk*.json
 google-credentials.json
 stripe-webhook-secret.txt
+
+myenv/
+.venv/
+venv/
+env/

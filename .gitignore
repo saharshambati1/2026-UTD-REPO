@@ -23,7 +23,7 @@ pnpm-lock.yaml
 
 .vercel
 
-
+.claude
 *.tsbuildinfo
 next-env.d.ts
 

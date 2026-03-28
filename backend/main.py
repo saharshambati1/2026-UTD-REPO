@@ -9,8 +9,13 @@ from core.config import get_settings
 from core.cache import get_redis
 from core.database import get_supabase
 from RAG.ragchat import router as rag_router
-from core.rate_limit import limiter, rate_limit_exceeded_handler
-from routers import advisor, simulate, tax, documents, stocks, narrate, glossary, health, budget, macro, users, assets, debts, goals, transactions, alerts, paper_trading, education, journal, community, bills, webhooks
+from routers.compare import router as compare_router
+from routers.cofounders import router as cofounders_router
+from routers.investors import router as investors_router
+from routers.roadmap import router as roadmap_router
+from routers.startups import router as startups_router
+from routers.templates import router as templates_router
+from routers.research import router as research_router
 
 
 settings = get_settings()
@@ -24,9 +29,6 @@ app = FastAPI(
     redoc_url=None, 
 )
 
-# Rate Limiter
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # Middleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -106,7 +108,13 @@ app.include_router(journal.router, prefix="/api/journal", tags=["Decision Journa
 app.include_router(community.router, prefix="/api/community", tags=["Community"])
 app.include_router(bills.router, prefix="/api/bills", tags=["Bills"])
 app.include_router(rag_router)
-
+app.include_router(templates_router)
+app.include_router(startups_router)
+app.include_router(compare_router)
+app.include_router(roadmap_router)
+app.include_router(cofounders_router)
+app.include_router(investors_router)
+app.include_router(research_router)
 
 
 # Route for Health Checking

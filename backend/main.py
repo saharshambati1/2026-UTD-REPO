@@ -8,6 +8,7 @@ import traceback
 from core.config import get_settings
 from core.cache import get_redis
 from core.database import get_supabase
+from RAG.ragchat import router as rag_router
 from core.rate_limit import limiter, rate_limit_exceeded_handler
 from routers import advisor, simulate, tax, documents, stocks, narrate, glossary, health, budget, macro, users, assets, debts, goals, transactions, alerts, paper_trading, education, journal, community, bills, webhooks
 
@@ -25,7 +26,7 @@ app = FastAPI(
 
 # Rate Limiter
 app.state.limiter = limiter
-app.add_execption_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # Middleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -104,6 +105,8 @@ app.include_router(education.router, prefix="/api/education", tags=["Education"]
 app.include_router(journal.router, prefix="/api/journal", tags=["Decision Journal"])
 app.include_router(community.router, prefix="/api/community", tags=["Community"])
 app.include_router(bills.router, prefix="/api/bills", tags=["Bills"])
+app.include_router(rag_router)
+
 
 
 # Route for Health Checking

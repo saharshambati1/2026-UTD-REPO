@@ -126,3 +126,49 @@ class EventAttendeeBase(BaseModel):
 
 class EventAttendee(EventAttendeeBase):
     model_config = ConfigDict(from_attributes=True)
+
+# ==========================================
+# 7. RAG ROADMAP SCHEMAS (Added)
+# ==========================================
+class RoadmapRequest(BaseModel):
+    org_id: str
+    author_id: str
+    user_prompt: str
+    template_id: Optional[str] = None
+
+class WeekPlan(BaseModel):
+    week_number: int = Field(..., description="Week number from 1 to 20")
+    focus: str = Field(..., description="The main theme of the week")
+    action_items: List[str] = Field(..., description="3-5 highly specific tasks")
+    due_date_offset_days: int = Field(..., description="Days from start date this week concludes")
+
+class DynamicStartupResponse(BaseModel):
+    intent: Literal["update_roadmap", "question_answer"]
+    text_response: str
+    roadmap: Optional[List[WeekPlan]] = None
+
+# ==========================================
+# 8. DIRECT MESSAGING SCHEMAS (Added)
+# ==========================================
+class DirectMessageCreate(BaseModel):
+    sender_id: UUID
+    receiver_id: UUID
+    text: str
+
+class DirectMessage(DirectMessageCreate):
+    id: UUID
+    sent_at: datetime
+    seen: bool
+    
+    # Denormalized data pulled from networking_profiles for the UI
+    sender_first_name: Optional[str] = None
+    sender_last_name: Optional[str] = None
+    sender_role: Optional[str] = None
+    sender_avatar_url: Optional[str] = None
+    
+    receiver_first_name: Optional[str] = None
+    receiver_last_name: Optional[str] = None
+    receiver_role: Optional[str] = None
+    receiver_avatar_url: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)

@@ -3,6 +3,7 @@ from typing import List, Optional, Literal
 from datetime import datetime
 from uuid import UUID
 
+
 from pydantic import BaseModel, Field
 from typing import List
 
@@ -14,12 +15,6 @@ class WeekPlan(BaseModel):
 
 class StartupRoadmap(BaseModel):
     roadmap: List[WeekPlan] = Field(..., description="Exactly 20 weeks of planning, ending with marketing and launch.")
-# ==========================================
-
-# ==========================================
-# 1. USERS & IDENTITY
-# =========================================
-
 class UserBase(BaseModel):
     full_name: str
     college: str
@@ -40,9 +35,6 @@ class User(UserBase):
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
-# ==========================================
-# 2. CONNECTIONS (AI Match Engine)
-# ==========================================
 class ConnectionBase(BaseModel):
     user_a: UUID
     user_b: UUID
@@ -58,10 +50,6 @@ class Connection(ConnectionBase):
     last_interaction: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
-# ==========================================
-# 3. ORGANIZATIONS (The RAG "Master Anchor")
-# Handles Startups, Clubs, & Independent Research
-# ==========================================
 class OrganizationBase(BaseModel):
     creator_id: UUID
     org_type: Literal['startup', 'club', 'independent_research']
@@ -69,7 +57,6 @@ class OrganizationBase(BaseModel):
     roles_needed: List[str] = Field(default_factory=list)
     funding_stage: Optional[str] = None
     
-    # The rolling master summary that the LLM constantly overwrites
     current_state_summary: Optional[str] = None
 
 class OrganizationCreate(OrganizationBase):
@@ -82,9 +69,6 @@ class Organization(OrganizationBase):
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
-# ==========================================
-# 4. CONTEXT LOG (The RAG "Append-Only History")
-# ==========================================
 class OrgContextLogBase(BaseModel):
     org_id: UUID
     update_content: str
@@ -94,14 +78,10 @@ class OrgContextLogCreate(OrgContextLogBase):
 
 class OrgContextLog(OrgContextLogBase):
     id: UUID
-    # The vector of the raw prompt, never changes once created
     update_embedding: Optional[List[float]] = Field(None, max_length=1536, min_length=1536)
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
-# ==========================================
-# 5. STATIC KNOWLEDGE BASE (YC Essays, Syllabi)
-# ==========================================
 class StaticKnowledgeBase(BaseModel):
     source_name: str
     content: str
@@ -115,9 +95,7 @@ class StaticKnowledgeChunk(StaticKnowledgeBase):
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
-# ==========================================
-# 6. EVENTS & GAMIFICATION
-# ==========================================
+
 class EventBase(BaseModel):
     organizer_id: UUID
     title: str
@@ -141,3 +119,58 @@ class EventAttendeeBase(BaseModel):
 
 class EventAttendee(EventAttendeeBase):
     model_config = ConfigDict(from_attributes=True)
+    
+class TemplateListItem(BaseModel):
+    id: str
+    name: str
+    description: str
+    distribution_channel: str
+
+
+class TemplateCompareRequest(BaseModel):
+    template_ids: list[str]
+
+class StartupProfileCreateRequest(BaseModel):
+    organization_id: str
+    idea_name: str
+    one_liner: str
+    problem: str = ""
+    target_customer: str = ""
+    industry: str = ""
+    business_model: str = ""
+    distribution_channel: str = ""
+    funding_stage: str = "idea"
+    current_stage: str = "idea"
+    product_state: str = "concept"
+    traction_summary: str = ""
+    goals_20_weeks: str = ""
+
+
+class StartupTemplateSelectionRequest(BaseModel):
+    startup_profile_id: str
+    template_ids: list[str] = Field(default_factory=list)
+    selection_reason: str = ""
+
+class RoadmapGenerateRequest(BaseModel):
+    startup_profile_id: str
+    template_ids: list[str] = Field(default_factory=list)
+    custom_goal: str = "Build product, validate distribution, and prepare for investors"
+    
+class StartupCompareRequest(BaseModel):
+    startup_profile_id: str
+    template_ids: list[str] = Field(default_factory=list)
+
+class CofounderSearchRequest(BaseModel):
+    startup_profile_id: str
+    needed_roles: list[str] = Field(default_factory=list)
+    limit: int = 10
+
+class InvestorMatchRequest(BaseModel):
+    startup_profile_id: str
+    limit: int = 10
+
+
+class InvestorCreateOutreachLinkRequest(BaseModel):
+    startup_profile_id: str
+    investor_id: str
+    thread_id: str

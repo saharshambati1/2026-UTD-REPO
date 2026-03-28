@@ -3,10 +3,6 @@ from typing import List, Optional, Literal
 from datetime import datetime
 from uuid import UUID
 
-
-from pydantic import BaseModel, Field
-from typing import List
-
 class WeekPlan(BaseModel):
     week_number: int = Field(..., description="Week number from 1 to 20")
     focus: str = Field(..., description="The main theme of the week (e.g., 'MVP Development' or 'Launch')")
@@ -118,6 +114,46 @@ class EventAttendeeBase(BaseModel):
     status: Literal['rsvp', 'attended', 'ghosted']
 
 class EventAttendee(EventAttendeeBase):
+    model_config = ConfigDict(from_attributes=True)
+
+# ==========================================
+# 7. RAG ROADMAP SCHEMAS (Added)
+# ==========================================
+class RoadmapRequest(BaseModel):
+    org_id: str
+    author_id: str
+    user_prompt: str
+    template_id: Optional[str] = None
+
+class DynamicStartupResponse(BaseModel):
+    intent: Literal["update_roadmap", "question_answer"]
+    text_response: str
+    roadmap: Optional[List[WeekPlan]] = None
+
+# ==========================================
+# 8. DIRECT MESSAGING SCHEMAS (Added)
+# ==========================================
+class DirectMessageCreate(BaseModel):
+    sender_id: UUID
+    receiver_id: UUID
+    text: str
+
+class DirectMessage(DirectMessageCreate):
+    id: UUID
+    sent_at: datetime
+    seen: bool
+    
+    # Denormalized data pulled from networking_profiles for the UI
+    sender_first_name: Optional[str] = None
+    sender_last_name: Optional[str] = None
+    sender_role: Optional[str] = None
+    sender_avatar_url: Optional[str] = None
+    
+    receiver_first_name: Optional[str] = None
+    receiver_last_name: Optional[str] = None
+    receiver_role: Optional[str] = None
+    receiver_avatar_url: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
     
 class TemplateListItem(BaseModel):

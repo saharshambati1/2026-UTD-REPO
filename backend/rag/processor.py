@@ -1,9 +1,9 @@
-import fitz  
+from typing import List
+import fitz
 from openai import OpenAI
-from core.config import get_settings
+from core.config import settings
 
-settings = get_settings()
-client = OpenAI(api_key=settings.openai_api_key)
+client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 def extract_text_from_pdf(pdf_content: bytes) -> str:
     text = ""
@@ -12,7 +12,7 @@ def extract_text_from_pdf(pdf_content: bytes) -> str:
             text += page.get_text()
     return text
 
-async def get_embedding(text: str) -> list[float]:
+async def get_embedding(text: str) -> List[float]:
     clean_text = text.replace("\n", " ")[:8000]
     response = client.embeddings.create(input=[clean_text], model="text-embedding-3-small")
     return response.data[0].embedding

@@ -41,18 +41,32 @@ class StartupService:
             raise NotFoundError(f"Startup profile {startup_profile_id} not found")
         return res.data[0]
 
+
     def save_template_selections(self, user_id: str, payload):
-        res = (
-            supabase.table("startup_profiles")
-            .update({
-                "selected_template_ids": payload.template_ids,
+        supabase = get_supabase()
+        records = []
+        for template_id in payload.template_ids:
+            records.append({
+                "startup_profile_id": payload.startup_profile_id,
+                "template_id": template_id,
+                "selected_by": user_id,
+                "selection_reason": payload.selection_reason,
             })
-            .eq("id", payload.startup_profile_id)
+
+        if records:
+            supabase.table("startup_template_selections").upsert(records).execute()
+
+        selected = (
+            supabase.table("startup_template_selections")
+            .select("id,startup_profile_id,template_id,selection_reason,created_at")
+            .eq("startup_profile_id", payload.startup_profile_id)
             .execute()
         )
-        if not res.data:
-            raise NotFoundError("Startup profile not found")
-        return res.data[0]
+        return selected.data or []
 
 
 startup_service = StartupService()
+
+
+
+

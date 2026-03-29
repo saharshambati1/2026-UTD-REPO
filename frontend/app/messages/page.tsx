@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { apiFetch } from "@/lib/api";
 
 // ─── Theme ─────────────────────────────────────────────────────────────────────
 const BG         = "#F5F0E4";
@@ -21,94 +22,44 @@ const TAG_BG     = "#EDE7D4";
 interface Contact { id: string; name: string; role: string; avatar: string; lastMessage: string; time: string; unread: number; online: boolean; }
 interface Message { id: string; sender: "me" | "them"; text: string; time: string; }
 interface Template { id: string; label: string; category: string; preview: string; body: string; }
-interface Thread { id: string; title: string; author: string; authorInitials: string; preview: string; tags: string[]; replies: number; views: number; time: string; pinned?: boolean; category: string; }
+interface Thread { id: string; title: string; author: string; authorInitials: string; preview: string; tags: string[]; replies: number; views: number; time: string; pinned?: boolean; category: string; channelId?: string; }
 interface ThreadReply { id: string; author: string; authorInitials: string; text: string; time: string; likes: number; }
 
-// ─── Static data ───────────────────────────────────────────────────────────────
-const CONTACTS: Contact[] = [
-  { id: "1", name: "Sarah Chen",   role: "Venture Capitalist",   avatar: "SC", lastMessage: "Looking forward to hearing more about your traction.", time: "2m",        unread: 2, online: true  },
-  { id: "2", name: "Marcus Reid",  role: "Startup Mentor",        avatar: "MR", lastMessage: "Let's schedule that call for next week.",             time: "1h",        unread: 0, online: true  },
-  { id: "3", name: "Priya Nair",   role: "Full-Stack Engineer",   avatar: "PN", lastMessage: "I've been working on a similar stack — happy to help.", time: "3h",       unread: 1, online: false },
-  { id: "4", name: "James Wu",     role: "Product Designer",      avatar: "JW", lastMessage: "Here are the updated Figma frames.",                  time: "Yesterday", unread: 0, online: false },
-  { id: "5", name: "Leila Hassan", role: "Angel Investor",        avatar: "LH", lastMessage: "Your deck is compelling. Let's talk.",                time: "2d",        unread: 0, online: false },
-];
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
 
-const SEED_MESSAGES: Record<string, Message[]> = {
-  "1": [
-    { id:"m1", sender:"them", text:"Hi! I saw your startup profile — really interesting space.", time:"10:00 AM" },
-    { id:"m2", sender:"me",   text:"Thanks Sarah! We're building a B2B SaaS for startup networking.", time:"10:02 AM" },
-    { id:"m3", sender:"them", text:"What's your current ARR and growth rate?", time:"10:05 AM" },
-    { id:"m4", sender:"me",   text:"We're pre-revenue but have 200 waitlist signups in 3 weeks.", time:"10:06 AM" },
-    { id:"m5", sender:"them", text:"Looking forward to hearing more about your traction.", time:"10:08 AM" },
-  ],
-  "2": [
-    { id:"m1", sender:"them", text:"Hey! I mentor founders at the early stage. What are you working on?", time:"9:00 AM" },
-    { id:"m2", sender:"me",   text:"We're building tooling for startup founders to find co-founders and investors.", time:"9:10 AM" },
-    { id:"m3", sender:"them", text:"That's a crowded space — what's your differentiation?", time:"9:15 AM" },
-    { id:"m4", sender:"me",   text:"AI-powered matching + warm intros through shared connections.", time:"9:17 AM" },
-    { id:"m5", sender:"them", text:"Let's schedule that call for next week.", time:"9:20 AM" },
-  ],
-  "3": [
-    { id:"m1", sender:"me",   text:"Hey Priya, I noticed you have experience with Next.js + Supabase?", time:"2:00 PM" },
-    { id:"m2", sender:"them", text:"Yeah, 3 years. What do you need help with?", time:"2:05 PM" },
-    { id:"m3", sender:"me",   text:"We're running into issues with real-time subscriptions at scale.", time:"2:06 PM" },
-    { id:"m4", sender:"them", text:"I've been working on a similar stack — happy to help.", time:"2:10 PM" },
-  ],
-  "4": [
-    { id:"m1", sender:"me",   text:"James, could you share the updated design frames when ready?", time:"Yesterday" },
-    { id:"m2", sender:"them", text:"Here are the updated Figma frames.", time:"Yesterday" },
-  ],
-  "5": [
-    { id:"m1", sender:"me",   text:"Hi Leila, I'd love to share what we're building with you.", time:"Mon" },
-    { id:"m2", sender:"them", text:"Your deck is compelling. Let's talk.", time:"Tue" },
-  ],
-};
-
-const TEMPLATES: Template[] = [
-  { id:"t1", label:"Introduction",         category:"Networking",    preview:"Hi [Name], I'd love to connect…",           body:"Hi [Name],\n\nI came across your profile and I'd love to connect. I'm [Your Name], currently building [Your Startup] — [one-line description]. Would love to hear about your work too.\n\nLooking forward to connecting!" },
-  { id:"t2", label:"Investor Pitch",       category:"Fundraising",   preview:"We're raising a seed round and…",           body:"Hi [Name],\n\nWe're currently raising our seed round for [Your Startup]. We've hit [key milestone] and are looking for a lead investor who understands [space].\n\nWould you be open to a 20-min call this week?" },
-  { id:"t3", label:"Mentor Request",       category:"Mentorship",    preview:"I'm looking for guidance on…",              body:"Hi [Name],\n\nI'm building in [space] and I'm navigating [specific challenge]. Your experience with [their background] would be incredibly valuable.\n\nWould you be open to a quick 15-min call?" },
-  { id:"t4", label:"Co-founder Outreach",  category:"Team Building", preview:"I'm looking for a technical co-founder…", body:"Hi [Name],\n\nI'm the founder of [Startup Name] and I'm looking for a technical co-founder who's strong in [skills]. I've already [key progress] and have [validation].\n\nWould love to explore whether there's a fit!" },
-  { id:"t5", label:"Collaboration",        category:"Partnerships",  preview:"I think our projects complement…",         body:"Hi [Name],\n\nI've been following your work on [their project] and I think there's a natural overlap with what we're building at [Your Startup].\n\nOpen to a quick chat?" },
-  { id:"t6", label:"Coffee Chat",          category:"Networking",    preview:"Would you be open to a quick call…",        body:"Hi [Name],\n\nI'd love to pick your brain about [topic]. No agenda — just a casual 15-min chat. Happy to work around your schedule.\n\nLet me know!" },
-];
-
-const THREADS: Thread[] = [
-  { id:"th1", title:"How do you handle technical co-founder equity splits?", author:"Alex Kim", authorInitials:"AK", preview:"We're at the stage where I need to bring in a CTO. I've been debating 50/50 vs a vesting cliff arrangement...", tags:["Co-founders","Equity","Legal"], replies:23, views:412, time:"2h", pinned:true, category:"Advice" },
-  { id:"th2", title:"Best cold email templates that actually get VC responses", author:"Mia Torres", authorInitials:"MT", preview:"After 200+ cold emails I found 3 formats that consistently get replies. Sharing what worked for me...", tags:["Fundraising","Cold Email","VC"], replies:41, views:890, time:"5h", category:"Fundraising" },
-  { id:"th3", title:"How we hit $10k MRR in 90 days — lessons learned", author:"Dev Patel", authorInitials:"DP", preview:"We launched on Product Hunt, got featured, and used that momentum to close our first 40 paying customers...", tags:["Revenue","Growth","B2B"], replies:56, views:1240, time:"1d", category:"Growth" },
-  { id:"th4", title:"Open source or not? Decision framework for early-stage SaaS", author:"Yuna Park", authorInitials:"YP", preview:"We went open-core after 6 months. Here's the decision tree we used and what we'd do differently...", tags:["Open Source","SaaS","Strategy"], replies:18, views:320, time:"2d", category:"Product" },
-  { id:"th5", title:"Finding your first 10 beta users without a network", author:"Omar Farouk", authorInitials:"OF", preview:"No connections, no audience. Here's how I recruited 10 engaged beta users in 2 weeks using Reddit + LinkedIn...", tags:["Beta Testing","Growth","Community"], replies:34, views:670, time:"3d", category:"Growth" },
-  { id:"th6", title:"When should you apply to YC vs other accelerators?", author:"Priya Menon", authorInitials:"PM", preview:"Applied to 4 accelerators simultaneously. Here's what each is really looking for and how to calibrate your timing...", tags:["Accelerators","YC","Fundraising"], replies:29, views:540, time:"4d", category:"Advice" },
-  { id:"th7", title:"Lessons from shutting down my first startup", author:"Jake Sullivan", authorInitials:"JS", preview:"Two years in, $180k burned, one tough decision. What I'd tell my past self and what I'm doing differently now...", tags:["Failure","Lessons","Resilience"], replies:62, views:1580, time:"5d", category:"Advice" },
-  { id:"th8", title:"AI wrappers — is there real defensibility here?", author:"Ravi Nath", authorInitials:"RN", preview:"Investors keep asking about moats. I've been stress-testing different AI wrapper business models — here's my analysis...", tags:["AI","Product","Strategy"], replies:47, views:820, time:"1w", category:"Product" },
-];
-
-const THREAD_REPLIES: Record<string, ThreadReply[]> = {
-  "th1": [
-    { id:"r1", author:"Sofia Lee",  authorInitials:"SL", text:"We did 60/40 with a 4-year vest and 1-year cliff for both founders. The asymmetry reflected that I had been working on it 6 months longer. Works well so far.", time:"1h 45m ago", likes:12 },
-    { id:"r2", author:"Raj Mehta",  authorInitials:"RM", text:"Whatever you do — get a lawyer. We tried to DIY our founder agreement and it caused huge problems when we later onboarded an investor. Not worth cutting corners.", time:"1h 30m ago", likes:28 },
-    { id:"r3", author:"Emma Clark", authorInitials:"EC", text:"I'd recommend reading 'Venture Deals' by Brad Feld before finalizing anything. The chapter on founder equity is really practical.", time:"55m ago", likes:9 },
-  ],
-  "th2": [
-    { id:"r1", author:"James Tan",  authorInitials:"JT", text:"The key for me was personalizing the first line with something specific from their portfolio — shows you've done your homework.", time:"4h ago", likes:19 },
-    { id:"r2", author:"Ana Rivera", authorInitials:"AR", text:"Subject line is everything. I A/B tested 20 subject lines and the ones that referenced a specific portfolio company got 3x the open rate.", time:"3h ago", likes:31 },
-  ],
-  "th3": [
-    { id:"r1", author:"Tyler Brooks", authorInitials:"TB", text:"Product Hunt is so underrated for B2B. We got 800 upvotes and 60 signups in 24 hours. The key is having your community ready to upvote in the first hour.", time:"20h ago", likes:22 },
-    { id:"r2", author:"Nina Osei",    authorInitials:"NO", text:"What was your onboarding like? We struggle with activation after sign-up — people sign up but don't actually use the product.", time:"18h ago", likes:8 },
-    { id:"r3", author:"Dev Patel",    authorInitials:"DP", text:"@Nina We built an in-app checklist with 5 steps. Users who complete step 3 (first real action) have 80% retention at 30 days. Nail that activation moment.", time:"17h ago", likes:35 },
-  ],
-};
+function timeAgo(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = Math.max(0, now.getTime() - d.getTime());
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "Just now";
+    if (mins < 60) return `${mins}m`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return days === 1 ? "Yesterday" : `${days}d`;
+    const weeks = Math.floor(days / 7);
+    return `${weeks}w`;
+  } catch {
+    return dateStr || "";
+  }
+}
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 function Avatar({ initials, size = 40, online }: { initials: string; size?: number; online?: boolean }) {
   const colors = ["#6B7C2D","#4A6019","#8A9E3A","#527020","#3D4F17"];
-  const idx = (initials.charCodeAt(0) + initials.charCodeAt(1)) % colors.length;
+  const safeInitials = initials || "??";
+  const idx = (safeInitials.charCodeAt(0) + (safeInitials.length > 1 ? safeInitials.charCodeAt(1) : 0)) % colors.length;
   return (
     <div style={{ position:"relative", flexShrink:0 }}>
       <div style={{ width:size, height:size, borderRadius:"50%", background:colors[idx], display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.35, fontWeight:700, color:"#FFF", letterSpacing:"0.02em" }}>
-        {initials}
+        {safeInitials}
       </div>
       {online !== undefined && (
         <div style={{ position:"absolute", bottom:1, right:1, width:size*0.26, height:size*0.26, borderRadius:"50%", background:online?"#4CAF50":"#C0B898", border:`2px solid ${SIDEBAR_BG}` }}/>
@@ -194,19 +145,60 @@ function ChatBubble({ message }: { message:Message }) {
   );
 }
 
+function LoadingSpinner() {
+  return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:32, color:MUTED, fontSize:13 }}>
+      Loading...
+    </div>
+  );
+}
+
 // ─── Thread Detail View ─────────────────────────────────────────────────────────
 function ThreadDetail({ thread, onBack }: { thread:Thread; onBack:()=>void }) {
   const [reply, setReply] = useState("");
-  const [localReplies, setLocalReplies] = useState<ThreadReply[]>(THREAD_REPLIES[thread.id] ?? []);
+  const [localReplies, setLocalReplies] = useState<ThreadReply[]>([]);
+  const [loadingReplies, setLoadingReplies] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingReplies(true);
+    apiFetch(`/chat/threads/${thread.id}/messages?limit=50`)
+      .then((data: any[]) => {
+        if (cancelled) return;
+        const mapped: ThreadReply[] = (data || []).map((msg: any) => ({
+          id: String(msg.id),
+          author: msg.sender_name || msg.sender_id || "User",
+          authorInitials: getInitials(msg.sender_name || msg.sender_id || "User"),
+          text: msg.content || msg.text || "",
+          time: timeAgo(msg.created_at || msg.timestamp || ""),
+          likes: msg.likes ?? 0,
+        }));
+        setLocalReplies(mapped);
+      })
+      .catch(() => {
+        if (!cancelled) setLocalReplies([]);
+      })
+      .finally(() => { if (!cancelled) setLoadingReplies(false); });
+    return () => { cancelled = true; };
+  }, [thread.id]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:"smooth" }); }, [localReplies]);
 
   const submitReply = () => {
     const text = reply.trim();
     if (!text) return;
-    setLocalReplies(prev => [...prev, { id:`r${Date.now()}`, author:"You", authorInitials:"ME", text, time:"Just now", likes:0 }]);
+    const optimistic: ThreadReply = { id:`r${Date.now()}`, author:"You", authorInitials:"ME", text, time:"Just now", likes:0 };
+    setLocalReplies(prev => [...prev, optimistic]);
     setReply("");
+
+    apiFetch(`/chat/threads/${thread.id}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ content: text }),
+    }).catch(() => {
+      // On failure, remove the optimistic reply
+      setLocalReplies(prev => prev.filter(r => r.id !== optimistic.id));
+    });
   };
 
   return (
@@ -243,7 +235,9 @@ function ThreadDetail({ thread, onBack }: { thread:Thread; onBack:()=>void }) {
         </div>
 
         {/* Replies */}
-        {localReplies.length > 0 && (
+        {loadingReplies ? (
+          <LoadingSpinner />
+        ) : localReplies.length > 0 ? (
           <div style={{ marginBottom:16 }}>
             <div style={{ fontSize:11, color:MUTED, letterSpacing:"0.07em", marginBottom:12, fontWeight:600 }}>
               {localReplies.length} {localReplies.length === 1 ? "REPLY" : "REPLIES"}
@@ -265,7 +259,7 @@ function ThreadDetail({ thread, onBack }: { thread:Thread; onBack:()=>void }) {
               </div>
             ))}
           </div>
-        )}
+        ) : null}
         <div ref={bottomRef}/>
       </div>
 
@@ -356,22 +350,171 @@ function MessagesContent() {
   const searchParams = useSearchParams();
   const initialThread = searchParams.get("openThread");
 
+  // ── Data state (fetched from APIs) ──────────────────────────────────────────
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [messages, setMessages] = useState<Record<string, Message[]>>({});
+
+  // ── Loading state ───────────────────────────────────────────────────────────
+  const [loadingContacts, setLoadingContacts] = useState(true);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [loadingThreads, setLoadingThreads] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  // ── UI state ────────────────────────────────────────────────────────────────
   const [tab, setTab] = useState<"dms"|"community">("dms");
-  const [activeId, setActiveId] = useState<string|null>(
-    initialThread ? (CONTACTS.find(c=>c.name===initialThread)?.id ?? null) : null
-  );
+  const [activeId, setActiveId] = useState<string|null>(null);
   const [activeThreadId, setActiveThreadId] = useState<string|null>(null);
   const [search, setSearch] = useState("");
-  const [messages, setMessages] = useState<Record<string, Message[]>>(SEED_MESSAGES);
   const [draft, setDraft] = useState("");
   const [showTemplates, setShowTemplates] = useState(false);
-  const [threads, setThreads] = useState<Thread[]>(THREADS);
   const [showNewThread, setShowNewThread] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const activeContact = CONTACTS.find(c=>c.id===activeId) ?? null;
+  // ── Fetch DM contacts on mount ──────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingContacts(true);
+    apiFetch("/chat/dm")
+      .then((data: any[]) => {
+        if (cancelled) return;
+        const mapped: Contact[] = (data || []).map((thread: any) => {
+          const partnerName = thread.partner_name || thread.partner?.name || thread.partner?.email || `Thread ${thread.id}`;
+          return {
+            id: String(thread.id),
+            name: partnerName,
+            role: thread.partner_role || thread.partner?.role || "",
+            avatar: getInitials(partnerName),
+            lastMessage: thread.last_message?.content || thread.last_message?.text || "",
+            time: timeAgo(thread.last_message?.created_at || thread.updated_at || thread.created_at || ""),
+            unread: thread.unread_count ?? 0,
+            online: thread.partner_online ?? thread.partner?.online ?? false,
+          };
+        });
+        setContacts(mapped);
+
+        // If openThread query param matches a contact name, select it
+        if (initialThread) {
+          const match = mapped.find(c => c.name === initialThread);
+          if (match) setActiveId(match.id);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setContacts([]);
+      })
+      .finally(() => { if (!cancelled) setLoadingContacts(false); });
+    return () => { cancelled = true; };
+  }, [initialThread]);
+
+  // ── Fetch templates on mount ────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingTemplates(true);
+    apiFetch("/api/templates")
+      .then((data: any[]) => {
+        if (cancelled) return;
+        const mapped: Template[] = (data || []).map((t: any) => ({
+          id: String(t.id),
+          label: t.label || t.name || t.title || "",
+          category: t.category || "",
+          preview: t.preview || t.description || "",
+          body: t.body || t.content || t.text || "",
+        }));
+        setTemplates(mapped);
+      })
+      .catch(() => {
+        if (!cancelled) setTemplates([]);
+      })
+      .finally(() => { if (!cancelled) setLoadingTemplates(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Fetch community threads on mount ────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingThreads(true);
+    apiFetch("/chat/communities")
+      .then(async (communities: any[]) => {
+        if (cancelled || !communities || communities.length === 0) {
+          if (!cancelled) setThreads([]);
+          return;
+        }
+        // Fetch channels for all communities in parallel
+        const channelSets = await Promise.all(
+          communities.map((c: any) =>
+            apiFetch(`/chat/communities/${c.id}/channels`).catch(() => [])
+          )
+        );
+        if (cancelled) return;
+
+        // Flatten all channels
+        const allChannels: any[] = channelSets.flat();
+
+        // Fetch threads for all channels in parallel
+        const threadSets = await Promise.all(
+          allChannels.map((ch: any) =>
+            apiFetch(`/chat/channels/${ch.id}/threads?limit=30`)
+              .then((threads: any[]) => (threads || []).map((t: any) => ({ ...t, _channelId: ch.id })))
+              .catch(() => [])
+          )
+        );
+        if (cancelled) return;
+
+        const allThreads: Thread[] = threadSets.flat().map((t: any) => ({
+          id: String(t.id),
+          title: t.title || "",
+          author: t.author_name || t.author?.name || `User ${t.author_id || ""}`.trim(),
+          authorInitials: getInitials(t.author_name || t.author?.name || `U${t.author_id || ""}`),
+          preview: t.preview || t.body || t.content || "",
+          tags: t.tags || [],
+          replies: t.reply_count ?? t.replies ?? 0,
+          views: t.view_count ?? t.views ?? 0,
+          time: timeAgo(t.created_at || t.timestamp || ""),
+          pinned: t.pinned ?? false,
+          category: t.category || t.channel_name || "General",
+          channelId: String(t._channelId || t.channel_id || ""),
+        }));
+
+        setThreads(allThreads);
+      })
+      .catch(() => {
+        if (!cancelled) setThreads([]);
+      })
+      .finally(() => { if (!cancelled) setLoadingThreads(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Fetch messages when selecting a contact ─────────────────────────────────
+  const fetchMessages = useCallback((contactId: string) => {
+    if (messages[contactId]) return; // Already cached
+    setLoadingMessages(true);
+    apiFetch(`/chat/threads/${contactId}/messages?limit=50`)
+      .then((data: any[]) => {
+        const mapped: Message[] = (data || []).map((msg: any) => ({
+          id: String(msg.id),
+          sender: msg.is_mine || msg.sender === "me" ? "me" as const : "them" as const,
+          text: msg.content || msg.text || "",
+          time: msg.created_at
+            ? new Date(msg.created_at).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })
+            : msg.time || "",
+        }));
+        setMessages(prev => ({ ...prev, [contactId]: mapped }));
+      })
+      .catch(() => {
+        setMessages(prev => ({ ...prev, [contactId]: [] }));
+      })
+      .finally(() => setLoadingMessages(false));
+  }, [messages]);
+
+  useEffect(() => {
+    if (activeId) fetchMessages(activeId);
+  }, [activeId, fetchMessages]);
+
+  // ── Derived state ───────────────────────────────────────────────────────────
+  const activeContact = contacts.find(c=>c.id===activeId) ?? null;
   const activeThread  = threads.find(t=>t.id===activeThreadId) ?? null;
-  const filtered      = CONTACTS.filter(c=>c.name.toLowerCase().includes(search.toLowerCase())||c.role.toLowerCase().includes(search.toLowerCase()));
+  const filtered      = contacts.filter(c=>c.name.toLowerCase().includes(search.toLowerCase())||c.role.toLowerCase().includes(search.toLowerCase()));
   const filteredThreads = threads.filter(t=>t.title.toLowerCase().includes(search.toLowerCase())||t.tags.some(tag=>tag.toLowerCase().includes(search.toLowerCase())));
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:"smooth" }); }, [activeId, messages]);
@@ -382,6 +525,17 @@ function MessagesContent() {
     const newMsg: Message = { id:`m${Date.now()}`, sender:"me", text, time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}) };
     setMessages(prev=>({...prev,[activeId]:[...(prev[activeId]??[]),newMsg]}));
     setDraft(""); setShowTemplates(false);
+
+    apiFetch(`/chat/threads/${activeId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ content: text }),
+    }).catch(() => {
+      // On failure, remove the optimistic message
+      setMessages(prev => {
+        const curr = prev[activeId] ?? [];
+        return { ...prev, [activeId]: curr.filter(m => m.id !== newMsg.id) };
+      });
+    });
   };
 
   const handleKeyDown = (e:React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -389,15 +543,57 @@ function MessagesContent() {
   };
 
   const handleNewThread = (title:string, body:string, tags:string[]) => {
-    const newThread: Thread = {
-      id: `th${Date.now()}`,
-      title, author:"You", authorInitials:"ME",
-      preview: body || "No body provided.",
-      tags, replies:0, views:0, time:"Just now", category:"General",
-    };
-    setThreads(prev=>[newThread,...prev]);
-    setShowNewThread(false);
-    setActiveThreadId(newThread.id);
+    // Find the first channel to post to (if available)
+    const firstThread = threads.find(t => t.channelId);
+    const channelId = firstThread?.channelId;
+
+    if (channelId) {
+      apiFetch(`/chat/channels/${channelId}/threads`, {
+        method: "POST",
+        body: JSON.stringify({ title }),
+      })
+        .then((created: any) => {
+          const newThread: Thread = {
+            id: String(created.id),
+            title: created.title || title,
+            author: "You",
+            authorInitials: "ME",
+            preview: body || "No body provided.",
+            tags,
+            replies: 0,
+            views: 0,
+            time: "Just now",
+            category: created.category || "General",
+            channelId,
+          };
+          setThreads(prev => [newThread, ...prev]);
+          setShowNewThread(false);
+          setActiveThreadId(newThread.id);
+        })
+        .catch(() => {
+          // Fallback: add optimistically even if API fails
+          const newThread: Thread = {
+            id: `th${Date.now()}`,
+            title, author:"You", authorInitials:"ME",
+            preview: body || "No body provided.",
+            tags, replies:0, views:0, time:"Just now", category:"General",
+          };
+          setThreads(prev=>[newThread,...prev]);
+          setShowNewThread(false);
+          setActiveThreadId(newThread.id);
+        });
+    } else {
+      // No channel available, add locally
+      const newThread: Thread = {
+        id: `th${Date.now()}`,
+        title, author:"You", authorInitials:"ME",
+        preview: body || "No body provided.",
+        tags, replies:0, views:0, time:"Just now", category:"General",
+      };
+      setThreads(prev=>[newThread,...prev]);
+      setShowNewThread(false);
+      setActiveThreadId(newThread.id);
+    }
   };
 
   const tabBtn = (label:string, value:"dms"|"community", badge?:number) => {
@@ -411,7 +607,7 @@ function MessagesContent() {
     );
   };
 
-  const totalUnread = CONTACTS.reduce((s,c)=>s+c.unread,0);
+  const totalUnread = contacts.reduce((s,c)=>s+c.unread,0);
 
   return (
     <div style={{ margin:"-2rem", height:"100vh", display:"flex", background:BG, overflow:"hidden" }}>
@@ -440,7 +636,7 @@ function MessagesContent() {
 
         {tab === "dms" ? (
           <div style={{ flex:1, overflowY:"auto" }}>
-            {filtered.length === 0 ? <p style={{ color:MUTED, fontSize:13, padding:16 }}>No contacts found.</p> : filtered.map(c=>(
+            {loadingContacts ? <LoadingSpinner /> : filtered.length === 0 ? <p style={{ color:MUTED, fontSize:13, padding:16 }}>No contacts found.</p> : filtered.map(c=>(
               <ContactRow key={c.id} contact={c} active={c.id===activeId}
                 onClick={()=>{setActiveId(c.id);setShowTemplates(false);setDraft("");}}/>
             ))}
@@ -455,7 +651,7 @@ function MessagesContent() {
                 New Thread
               </button>
             </div>
-            {filteredThreads.length === 0 ? <p style={{ color:MUTED, fontSize:13, padding:16 }}>No threads found.</p> : filteredThreads.map(t=>(
+            {loadingThreads ? <LoadingSpinner /> : filteredThreads.length === 0 ? <p style={{ color:MUTED, fontSize:13, padding:16 }}>No threads found.</p> : filteredThreads.map(t=>(
               <ThreadRow key={t.id} thread={t} active={t.id===activeThreadId} onClick={()=>setActiveThreadId(t.id)}/>
             ))}
           </div>
@@ -493,14 +689,14 @@ function MessagesContent() {
                 </div>
               </div>
               <div style={{ flex:1, overflowY:"auto", padding:"20px 24px", display:"flex", flexDirection:"column" }}>
-                {(messages[activeContact.id]??[]).map(msg=><ChatBubble key={msg.id} message={msg}/>)}
+                {loadingMessages ? <LoadingSpinner /> : (messages[activeContact.id]??[]).map(msg=><ChatBubble key={msg.id} message={msg}/>)}
                 <div ref={bottomRef}/>
               </div>
               {showTemplates && (
                 <div style={{ borderTop:`1px solid ${BORDER}`, padding:"14px 18px", background:SIDEBAR_BG, maxHeight:300, overflowY:"auto" }}>
                   <p style={{ margin:"0 0 10px", fontSize:11, color:MUTED, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>Message Templates</p>
                   <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(230px, 1fr))", gap:10 }}>
-                    {TEMPLATES.map(t=><TemplateCard key={t.id} template={t} onUse={b=>{setDraft(b);setShowTemplates(false);}}/>)}
+                    {loadingTemplates ? <LoadingSpinner /> : templates.map(t=><TemplateCard key={t.id} template={t} onUse={b=>{setDraft(b);setShowTemplates(false);}}/>)}
                   </div>
                 </div>
               )}
@@ -529,7 +725,7 @@ function MessagesContent() {
               <div style={{ width:"100%", maxWidth:640 }}>
                 <p style={{ margin:"0 0 12px", fontSize:11, color:MUTED, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase", textAlign:"center" }}>Quick Templates</p>
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(230px, 1fr))", gap:10 }}>
-                  {TEMPLATES.map(t=><TemplateCard key={t.id} template={t} onUse={b=>{if(CONTACTS[0]){setActiveId(CONTACTS[0].id);setDraft(b);}}}/>)}
+                  {loadingTemplates ? <LoadingSpinner /> : templates.map(t=><TemplateCard key={t.id} template={t} onUse={b=>{if(contacts[0]){setActiveId(contacts[0].id);setDraft(b);}}}/>)}
                 </div>
               </div>
             </div>

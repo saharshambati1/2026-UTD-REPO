@@ -94,7 +94,7 @@ class InvestorService:
                 "thread_id": payload.thread_id,
                 "created_by": user_id,
             })
-            .execute
+            .execute()
         )
         return res.data[0]
 

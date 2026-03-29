@@ -22,7 +22,6 @@ class Settings(BaseSettings):
     # Google OAuth
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID")
 
-
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 # 3. For files that want to call the function (like main.py)

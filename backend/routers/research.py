@@ -8,4 +8,3 @@ async def onboard_and_match(user_id: str, file: UploadFile = File(...)):
     """Upload resume, get top 10 matches + their papers."""
     content = await file.read()
     return await ResearchService.process_and_match(user_id, content)
-

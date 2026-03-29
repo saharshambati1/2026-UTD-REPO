@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { apiFetch } from "@/lib/api";
 
 const BG = "#F5F0E4";
 const CARD_BG = "#FFFDF6";
@@ -30,22 +31,63 @@ interface CompanyTemplate {
 
 interface WeekData { week: number; description: string; }
 
-// ─── Company Templates ─────────────────────────────────────────────────────────
+// ─── API response type ─────────────────────────────────────────────────────────
 
-const TEMPLATES: CompanyTemplate[] = [
-  { id: "notion",    company: "Notion",     description: "Notion started as a simple note-taking SaaS and grew into a full productivity suite. Known for viral word-of-mouth growth among knowledge workers.", distributionChannel: "Product Hunt, Twitter, developer communities, university campuses", phaseType: "SaaS",          founded: "2016" },
-  { id: "stripe",    company: "Stripe",     description: "Stripe targeted developers with a dead-simple payments API. Growth driven entirely by developer love and word-of-mouth before any marketing.",    distributionChannel: "Hacker News, developer forums, GitHub, direct developer outreach",      phaseType: "SaaS",          founded: "2010" },
-  { id: "figma",     company: "Figma",      description: "Figma disrupted desktop design tools by going browser-first with real-time collaboration. Grew through designer communities and viral file sharing.", distributionChannel: "Designer communities, Dribbble, Twitter, viral public file sharing",    phaseType: "SaaS",          founded: "2012" },
-  { id: "slack",     company: "Slack",      description: "Slack started as an internal tool for a gaming company. Rapid adoption via team invites and word-of-mouth within companies.",                       distributionChannel: "Direct team invites, tech press, Product Hunt, Hacker News",            phaseType: "SaaS",          founded: "2013" },
-  { id: "dropbox",   company: "Dropbox",    description: "Dropbox validated demand with an explainer video before building. Grew explosively through a referral program giving free storage to both parties.", distributionChannel: "Referral program, HN waitlist, direct link sharing, App Store",         phaseType: "SaaS",          founded: "2007" },
-  { id: "airbnb",    company: "Airbnb",     description: "Airbnb bootstrapped growth by manually recruiting hosts on Craigslist and photographing their listings. Focused on trust and supply before demand.", distributionChannel: "Craigslist cross-posting, direct host outreach, PR, travel bloggers",  phaseType: "Marketplace",   founded: "2008" },
-  { id: "uber",      company: "Uber",       description: "Uber launched city-by-city, manually recruiting drivers and offering free rides to new riders. Expanded rapidly once liquidity was achieved.",       distributionChannel: "City-by-city launch, free ride credits, event marketing, referrals",    phaseType: "Marketplace",   founded: "2009" },
-  { id: "etsy",      company: "Etsy",       description: "Etsy grew by partnering with craft fairs and online craft communities. Early focus was entirely on recruiting passionate artisan sellers first.",     distributionChannel: "Craft fair partnerships, craft forums, Pinterest, seller outreach",     phaseType: "Marketplace",   founded: "2005" },
-  { id: "doordash",  company: "DoorDash",   description: "DoorDash started as a simple PDF menu site. Founders personally delivered food and built supply through direct restaurant outreach door-to-door.",   distributionChannel: "Door-to-door restaurant outreach, campus flyers, Google SEO, apps",      phaseType: "Marketplace",   founded: "2013" },
-  { id: "instagram", company: "Instagram",  description: "Instagram launched with a tight focus on filters and simplicity. Hit #1 on the App Store within hours via design community buzz on Twitter.",       distributionChannel: "App Store, Twitter launch post, photography communities, influencers",  phaseType: "Consumer App",  founded: "2010" },
-  { id: "duolingo",  company: "Duolingo",   description: "Duolingo built a massive waitlist before launch by offering something unique: free language learning with gamification. Press drove millions early.", distributionChannel: "App Store SEO, press coverage, university partnerships, streak sharing", phaseType: "Consumer App",  founded: "2011" },
-  { id: "spotify",   company: "Spotify",    description: "Spotify launched invite-only in Europe to create scarcity. Licensing deals came first; growth came through Facebook social graph integration.",      distributionChannel: "Invite-only waitlist, Facebook social graph, music blogs, playlists",    phaseType: "Consumer App",  founded: "2006" },
-];
+interface ApiTemplate {
+  id: string;
+  name: string;
+  description: string;
+  distribution_channel: string;
+  created_at: string;
+}
+
+function inferPhaseType(description: string): PhaseType {
+  const lower = description.toLowerCase();
+  if (lower.includes("marketplace") || lower.includes("seller") || lower.includes("buyer") || lower.includes("listing")) return "Marketplace";
+  if (lower.includes("app store") || lower.includes("consumer") || lower.includes("mobile") || lower.includes("gamification")) return "Consumer App";
+  return "SaaS";
+}
+
+function mapApiTemplate(t: ApiTemplate): CompanyTemplate {
+  return {
+    id: t.id,
+    company: t.name,
+    description: t.description,
+    distributionChannel: t.distribution_channel,
+    phaseType: inferPhaseType(t.description),
+    founded: t.created_at ? new Date(t.created_at).getFullYear().toString() : "",
+  };
+}
+
+function useTemplates() {
+  const [templates, setTemplates] = useState<CompanyTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetch() {
+      try {
+        setLoading(true);
+        setError(null);
+        const data: ApiTemplate[] = await apiFetch("/api/templates");
+        if (!cancelled) {
+          setTemplates(data.map(mapApiTemplate));
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err.message || "Failed to load templates");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetch();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { templates, loading, error };
+}
 
 // ─── Weekly phases ─────────────────────────────────────────────────────────────
 
@@ -348,7 +390,7 @@ function Btn({ children, onClick, disabled, style }: { children: React.ReactNode
 
 // ─── Plan view ──────────────────────────────────────────────────────────────────
 
-function PlanView() {
+function PlanView({ templates }: { templates: CompanyTemplate[] }) {
   const [selected, setSelected] = useState<CompanyTemplate | null>(null);
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
@@ -363,7 +405,7 @@ function PlanView() {
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, marginBottom: 10 }}>Choose a Company Template</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))", gap: 12 }}>
-          {TEMPLATES.map((t) => (
+          {templates.map((t) => (
             <TemplateCard key={t.id} t={t} active={selected?.id === t.id}
               onClick={() => { setSelected(t); setDist(t.distributionChannel); setPlan(null); }}
             />
@@ -439,7 +481,7 @@ function CompactTemplateCard({ t, active, accent, onClick }: { t: CompanyTemplat
 
 // ─── Compare view ───────────────────────────────────────────────────────────────
 
-function CompareView() {
+function CompareView({ templates }: { templates: CompanyTemplate[] }) {
   const [selectedA, setSelectedA] = useState<CompanyTemplate | null>(null);
   const [selectedB, setSelectedB] = useState<CompanyTemplate | null>(null);
   const [results, setResults] = useState(false);
@@ -476,7 +518,7 @@ function CompareView() {
                 )}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 520, overflowY: "auto", paddingRight: 4 }}>
-                {TEMPLATES.map((t) => (
+                {templates.map((t) => (
                   <CompactTemplateCard
                     key={t.id}
                     t={t}
@@ -561,6 +603,7 @@ function PlanPageContent() {
   const searchParams = useSearchParams();
   const initialMode = searchParams.get("mode") === "compare" ? "compare" : "plan";
   const [mode, setMode] = useState<PageMode>(initialMode);
+  const { templates, loading, error } = useTemplates();
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto" }}>
@@ -585,7 +628,24 @@ function PlanPageContent() {
         </div>
       </div>
 
-      {mode === "plan" ? <PlanView /> : <CompareView />}
+      {loading && (
+        <div style={{ textAlign: "center", padding: 48, color: MUTED, fontSize: 14 }}>
+          Loading templates...
+        </div>
+      )}
+
+      {error && (
+        <div style={{ textAlign: "center", padding: 48 }}>
+          <div style={{ color: "#8B2020", fontSize: 14, marginBottom: 8 }}>
+            Failed to load templates: {error}
+          </div>
+          <Btn onClick={() => window.location.reload()}>Retry</Btn>
+        </div>
+      )}
+
+      {!loading && !error && (
+        mode === "plan" ? <PlanView templates={templates} /> : <CompareView templates={templates} />
+      )}
     </div>
   );
 }

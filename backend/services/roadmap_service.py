@@ -5,7 +5,7 @@ from services.linking_service import linking_service
 from services.startup_service import startup_service
 from services.template_service import template_service
 
-supabase = get_supabase
+supabase = get_supabase()
 class RoadmapService:
     def generate_roadmap(self, user_id: str, payload):
         startup = startup_service.get_startup_profile(payload.startup_profile_id)

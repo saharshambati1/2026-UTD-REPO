@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv  # <-- 1. Add this import
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from openai import AsyncOpenAI
 
@@ -8,7 +9,9 @@ from schemas import RoadmapRequest, DynamicStartupResponse
 # Import your synchronous Supabase wrappers
 from core.database import select_rows, insert_rows, update_rows
 
-# Initialize OpenAI
+load_dotenv()  # <-- 2. Call this before you initialize OpenAI!
+
+# Initialize OpenAI (Now os.getenv will actually see your .env file)
 openai = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Your router is perfectly configured here

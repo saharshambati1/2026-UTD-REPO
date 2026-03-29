@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     SUPABASE_JWT_SECRET: str = ""
     RAG_SERVICE_URL: str = ""
     INTERNAL_API_KEY: str = ""
+    openai_api_key: str = ""
+    redis_url: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

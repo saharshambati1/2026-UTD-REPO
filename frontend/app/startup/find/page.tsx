@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 
 const BG = "#F5F0E4";
 const CARD_BG = "#FFFDF6";
@@ -28,69 +29,16 @@ interface Investor {
   initials: string;
 }
 
-const coFounders: CoFounder[] = [
-  {
-    name: "Alex Rivera",
-    description: "Full-stack engineer with 5 years of experience building SaaS products. Ex-Stripe, loves developer tools.",
-    interests: ["Web development", "Open source", "Developer tools", "EdTech"],
-    photo: "",
-    initials: "AR",
-  },
-  {
-    name: "Priya Nair",
-    description: "Product designer and UX researcher focused on consumer apps. Previously at Figma and Notion.",
-    interests: ["Product design", "User research", "Mobile apps", "Accessibility"],
-    photo: "",
-    initials: "PN",
-  },
-  {
-    name: "Jordan Kim",
-    description: "Growth marketer and data analyst. Scaled two startups from 0 to 10k users organically.",
-    interests: ["Growth hacking", "Content marketing", "Analytics", "B2B SaaS"],
-    photo: "",
-    initials: "JK",
-  },
-  {
-    name: "Maya Chen",
-    description: "AI/ML engineer specializing in NLP and recommendation systems. PhD dropout turned startup founder.",
-    interests: ["Machine learning", "NLP", "Research", "HealthTech"],
-    photo: "",
-    initials: "MC",
-  },
-];
-
-const investors: Investor[] = [
-  {
-    name: "Sandra Lee",
-    description: "Partner at Horizon Ventures. Focuses on pre-seed and seed-stage consumer and enterprise startups.",
-    companiesInvested: ["Notion", "Linear", "Loom"],
-    photo: "",
-    initials: "SL",
-  },
-  {
-    name: "Marcus Webb",
-    description: "Angel investor and former founder. Invests in deep tech, AI, and developer infrastructure.",
-    companiesInvested: ["Replit", "Supabase", "Railway"],
-    photo: "",
-    initials: "MW",
-  },
-  {
-    name: "Diana Flores",
-    description: "General Partner at SeedSpark Fund. Passionate about marketplace businesses and fintech.",
-    companiesInvested: ["Brex", "Plaid", "Mercury"],
-    photo: "",
-    initials: "DF",
-  },
-  {
-    name: "James Okafor",
-    description: "Managing Partner at NextWave Capital. Focus on climate tech and sustainable consumer goods.",
-    companiesInvested: ["Watershed", "Pachama", "Climeworks"],
-    photo: "",
-    initials: "JO",
-  },
-];
-
 type Tab = "co-founders" | "investors";
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((part) => part.charAt(0))
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
@@ -247,13 +195,224 @@ function PersonCard({
   );
 }
 
+function LoadingSpinner() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 60,
+        gap: 16,
+      }}
+    >
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          border: `3px solid ${BORDER}`,
+          borderTopColor: PRIMARY,
+          borderRadius: "50%",
+          animation: "spin 0.8s linear infinite",
+        }}
+      />
+      <span style={{ fontSize: 14, color: MUTED }}>Loading...</span>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+function ErrorMessage({ message }: { message: string }) {
+  return (
+    <div
+      style={{
+        background: "#FFF5F5",
+        border: "1px solid #E8B4B4",
+        borderRadius: 10,
+        padding: "16px 20px",
+        color: "#8B3030",
+        fontSize: 14,
+        lineHeight: 1.5,
+      }}
+    >
+      {message}
+    </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div
+      style={{
+        background: CARD_BG,
+        border: `1px solid ${BORDER}`,
+        borderRadius: 14,
+        padding: "40px 20px",
+        textAlign: "center",
+        color: MUTED,
+        fontSize: 14,
+        lineHeight: 1.6,
+      }}
+    >
+      {message}
+    </div>
+  );
+}
+
 export default function FindPage() {
   const [activeTab, setActiveTab] = useState<Tab>("co-founders");
   const router = useRouter();
 
+  const [coFounders, setCoFounders] = useState<CoFounder[]>([]);
+  const [coFoundersLoading, setCoFoundersLoading] = useState(true);
+  const [coFoundersError, setCoFoundersError] = useState<string | null>(null);
+
+  const [investors, setInvestors] = useState<Investor[]>([]);
+  const [investorsLoading, setInvestorsLoading] = useState(true);
+  const [investorsError, setInvestorsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchCoFounders() {
+      setCoFoundersLoading(true);
+      setCoFoundersError(null);
+      try {
+        const data = await apiFetch("/api/cofounders/search", {
+          method: "POST",
+          body: JSON.stringify({
+            startup_profile_id: null,
+            needed_roles: [],
+            limit: 10,
+          }),
+        });
+        if (cancelled) return;
+
+        const matches = data?.search_result?.matches ?? [];
+        const mapped: CoFounder[] = matches.map(
+          (m: {
+            user_id: string;
+            name: string;
+            photo_url: string;
+            description: string;
+            skills: string[];
+            interests: string[];
+            score: number;
+          }) => ({
+            name: m.name,
+            description: m.description,
+            interests: m.interests?.length ? m.interests : m.skills ?? [],
+            photo: m.photo_url ?? "",
+            initials: getInitials(m.name),
+          })
+        );
+        setCoFounders(mapped);
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const message =
+          err instanceof Error ? err.message : "Failed to load co-founders";
+        setCoFoundersError(message);
+      } finally {
+        if (!cancelled) setCoFoundersLoading(false);
+      }
+    }
+
+    fetchCoFounders();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchInvestors() {
+      setInvestorsLoading(true);
+      setInvestorsError(null);
+      try {
+        const data = await apiFetch("/api/investors?limit=20");
+        if (cancelled) return;
+
+        const list = Array.isArray(data) ? data : [];
+        const mapped: Investor[] = list.map(
+          (inv: {
+            id: string;
+            name: string;
+            firm_name: string;
+            photo_url: string;
+            description: string;
+            sector_focus: string[];
+            stage_focus: string[];
+            thesis: string;
+          }) => ({
+            name: inv.name,
+            description: inv.description || inv.thesis || "",
+            companiesInvested: inv.sector_focus ?? [],
+            photo: inv.photo_url ?? "",
+            initials: getInitials(inv.name),
+          })
+        );
+        setInvestors(mapped);
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const message =
+          err instanceof Error ? err.message : "Failed to load investors";
+        setInvestorsError(message);
+      } finally {
+        if (!cancelled) setInvestorsLoading(false);
+      }
+    }
+
+    fetchInvestors();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleChat = (name: string) => {
     router.push(`/messages?openThread=${encodeURIComponent(name)}`);
   };
+
+  function renderCoFounders() {
+    if (coFoundersLoading) return <LoadingSpinner />;
+    if (coFoundersError) return <ErrorMessage message={coFoundersError} />;
+    if (coFounders.length === 0)
+      return (
+        <EmptyState message="No co-founder matches found. Create a startup profile to get personalized co-founder recommendations." />
+      );
+    return coFounders.map((person, i) => (
+      <PersonCard
+        key={person.name}
+        name={person.name}
+        initials={person.initials}
+        description={person.description}
+        tags={person.interests}
+        tagLabel="Interests"
+        onChat={() => handleChat(person.name)}
+        index={i}
+      />
+    ));
+  }
+
+  function renderInvestors() {
+    if (investorsLoading) return <LoadingSpinner />;
+    if (investorsError) return <ErrorMessage message={investorsError} />;
+    if (investors.length === 0)
+      return <EmptyState message="No investors found at the moment." />;
+    return investors.map((person, i) => (
+      <PersonCard
+        key={person.name}
+        name={person.name}
+        initials={person.initials}
+        description={person.description}
+        tags={person.companiesInvested}
+        tagLabel="Sector Focus"
+        onChat={() => handleChat(person.name)}
+        index={i}
+      />
+    ));
+  }
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", animation: "pageEnter 0.42s cubic-bezier(0.22,1,0.36,1) both" }}>
@@ -290,31 +449,7 @@ export default function FindPage() {
           gap: 20,
         }}
       >
-        {activeTab === "co-founders"
-          ? coFounders.map((person, i) => (
-              <PersonCard
-                key={person.name}
-                name={person.name}
-                initials={person.initials}
-                description={person.description}
-                tags={person.interests}
-                tagLabel="Interests"
-                onChat={() => handleChat(person.name)}
-                index={i}
-              />
-            ))
-          : investors.map((person, i) => (
-              <PersonCard
-                key={person.name}
-                name={person.name}
-                initials={person.initials}
-                description={person.description}
-                tags={person.companiesInvested}
-                tagLabel="Companies Invested In"
-                onChat={() => handleChat(person.name)}
-                index={i}
-              />
-            ))}
+        {activeTab === "co-founders" ? renderCoFounders() : renderInvestors()}
       </div>
     </div>
   );

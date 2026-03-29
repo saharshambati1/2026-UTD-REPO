@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { apiFetch } from "@/lib/api";
 
 const CARD_BG  = "#FFFDF6";
 const BORDER   = "#DDD5C0";
@@ -18,18 +19,43 @@ interface Club {
   tags: string[]; color: string; applicationQuestions: string[];
 }
 
-const CLUBS: Club[] = [
-  { id:"hackutd",      name:"HackUTD",               tagline:"Build something amazing in 24 hours.",          description:"UTD's premier hackathon organization. We host one of Texas' largest hackathons every fall and run year-round workshops.",                                                   fullBio:"HackUTD is the student-run org behind one of Texas' most-attended collegiate hackathons. Founded in 2014, we've grown from 200 to 1,200+ participants. Beyond the flagship 24-hour event, we run monthly workshops on web dev, AI/ML, hardware, and entrepreneurship. Sponsors have included Google, Microsoft, Capital One, and Goldman Sachs. Everyone belongs here — no experience required.",                                              category:"Technology",  members:240, meetingTime:"Thursdays 7:00 PM — ECSN 2.120",    established:"2014", tags:["Hackathon","Web Dev","AI/ML","Networking"],           color:"#6B7C2D", applicationQuestions:["What's a project you've built or want to build?","Which role interests you — organizing, sponsorship, marketing, or development?"] },
-  { id:"acm",          name:"ACM @ UTD",              tagline:"Advancing computing as a science and profession.", description:"The largest CS org on campus. Workshops, coding contests, ICPC training, and industry networking events for all skill levels.",                                           fullBio:"ACM @ UTD has 600+ active members and something for everyone — beginner-friendly intro sessions to advanced ICPC training. Special interest groups include ACM-W, SIGAI, SIGGRAPH, and SIGGame. We host an annual career fair, resume workshops, and mock interviews with engineers from top tech companies.",                                                                                                                                       category:"Technology",  members:620, meetingTime:"Tuesdays 6:30 PM — SCI 1.225",    established:"1998", tags:["Competitive Programming","ICPC","Career","Workshops"], color:"#2255A4", applicationQuestions:["What drew you to computer science?","Which ACM special interest group interests you most, and why?"] },
-  { id:"entrepreneurship", name:"Entrepreneurship Club", tagline:"From idea to IPO — every stage, every founder.", description:"UTD's hub for founders. Pitch competitions, startup showcases, and one-on-one mentorship from successful entrepreneurs in DFW.",                                        fullBio:"The UTD Entrepreneurship Club has been the launchpad for dozens of startups since 2008. Members have raised $40M+ in venture funding and been accepted to YC, Techstars, and more. We host weekly founder talks, monthly pitch nights, and an annual startup weekend. Whether you have a formed startup or a napkin idea — you belong here.",                                                                                                         category:"Business",    members:310, meetingTime:"Wednesdays 7:00 PM — JSOM 2.803", established:"2008", tags:["Startups","Pitch Competitions","Mentorship","VC"],     color:"#E87722", applicationQuestions:["Describe a startup idea you've had (doesn't need to be polished).","What excites you most — product, fundraising, growth, or operations?"] },
-  { id:"design",       name:"UTD Design Society",     tagline:"Where creativity meets intention.",              description:"A community for UX designers, graphic artists, and product thinkers. Weekly critiques, guest speakers, and real design sprints.",                                         fullBio:"UTD Design Society gives design-minded students a home at a STEM-heavy university. We welcome everyone from seasoned UX designers to people who just discovered Figma. Meetings alternate between design critiques, guest speakers, and collaborative sprints. We run an annual design challenge with real company briefs and portfolio review nights.",                                                                                                 category:"Arts & Design",members:180,meetingTime:"Mondays 6:00 PM — ATC 1.202",       established:"2016", tags:["UX Design","Figma","Product Design","Visual Design"],  color:"#9B4DCA", applicationQuestions:["Share a design you're proud of — what problem did it solve?","What design tool are you most comfortable with?"] },
-  { id:"robotics",     name:"UTD Robotics Club",      tagline:"Building machines that think, move, and compete.", description:"Hands-on robotics for every level. We compete in VEX U, RoboSub, and NASA Lunabotics — and our build lab is open 24/7.",                                            fullBio:"UTD Robotics gives students the chance to design, build, and program real robots. We compete in VEX U, RoboSub, and NASA Lunabotics. Workshops cover CAD (Fusion 360/SolidWorks), embedded programming (Arduino/ROS), and motor control. The build lab has 3D printers, laser cutters, and electronics benches, open to members 24/7.",                                                                                                           category:"Engineering", members:145, meetingTime:"Fridays 5:00 PM — ECSW 1.365",      established:"2011", tags:["Robotics","CAD","Embedded Systems","Competition"],     color:"#CC3333", applicationQuestions:["What role interests you — mechanical, electrical, or software?","Describe a time you built or fixed something physical."] },
-  { id:"finance",      name:"Finance & Investment Club",tagline:"Learn to invest. Think like an analyst.",      description:"Stock pitches, financial modeling boot camps, and case competitions. Networking with Goldman Sachs, JP Morgan, Blackstone, and DFW investment firms.",                   fullBio:"The UTD Finance & Investment Club prepares students for IB, PE, VC, and asset management. Our core program: a 10-week financial modeling boot camp, weekly stock pitch competitions, and a student-managed paper portfolio. We send teams to national case competitions and have placed top 10 at CFA Institute events.",                                                                                                                            category:"Business",    members:270, meetingTime:"Tuesdays 7:00 PM — JSOM 11.210",   established:"2005", tags:["Investing","Financial Modeling","Case Competitions","VC"],color:"#1A6B5A",applicationQuestions:["What sector of the market interests you most, and why?","Walk us through a recent financial news story that caught your attention."] },
-  { id:"ai-society",   name:"AI Society @ UTD",       tagline:"Exploring the frontier of artificial intelligence.", description:"Paper reading groups, hands-on ML project sprints, and a semester-long AI capstone. Speaker series from OpenAI, DeepMind, and top universities.",               fullBio:"AI Society @ UTD is the fastest-growing club on campus. Founded in 2019, we run weekly paper reading groups, project sprints, and a semester-long capstone where teams build and deploy real ML products. Our speaker series has brought in researchers from OpenAI, DeepMind, and Google Brain. Members have landed internships at top AI labs.",                                                                                                       category:"Technology",  members:380, meetingTime:"Wednesdays 6:00 PM — SCI 2.804",   established:"2019", tags:["Machine Learning","Deep Learning","Research","Kaggle"],  color:"#4A4A8A", applicationQuestions:["What ML concept or paper has excited you recently?","Do you have a project idea you'd want to build with a team?"] },
-  { id:"volunteering", name:"Comet Cupboard & Volunteers",tagline:"Giving back to campus and the DFW community.",description:"UTD's volunteer coordination hub. We manage the campus food pantry and coordinate placements with 30+ nonprofit partners across DFW.",                              fullBio:"Comet Cupboard & Volunteers manages the campus food pantry serving 400+ students/month, and coordinates volunteer placements with 30+ DFW nonprofits — from tutoring in Garland ISD to habitat restoration at White Rock Lake. We also run 'Tech for Good' events pairing CS students with nonprofits that need technical help.",                                                                                                                  category:"Community",   members:520, meetingTime:"Sundays 2:00 PM — Student Union 2.410",established:"2003",tags:["Volunteering","Community Service","Food Pantry","Nonprofits"],color:"#C0392B",applicationQuestions:["What cause are you most passionate about, and why?","Describe a time you went out of your way to help someone."] },
-];
+// Default colors to cycle through for clubs that don't have one
+const DEFAULT_COLORS = ["#6B7C2D","#2255A4","#E87722","#9B4DCA","#CC3333","#1A6B5A","#4A4A8A","#C0392B"];
 
-const CATEGORIES = ["All", ...Array.from(new Set(CLUBS.map(c => c.category)))];
+/** Extract the first sentence from a description to use as a tagline */
+function extractTagline(description: string): string {
+  if (!description) return "";
+  const match = description.match(/^[^.!?]*[.!?]/);
+  return match ? match[0].trim() : description;
+}
+
+/** Capitalize first letter of a string */
+function capitalize(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Map a raw API community object to our Club interface */
+function mapCommunityToClub(raw: Record<string, unknown>, index: number): Club {
+  const desc = (raw.description as string) || "";
+  return {
+    id: raw.id as string,
+    name: (raw.name as string) || "Unnamed Club",
+    tagline: extractTagline(desc),
+    description: desc,
+    fullBio: desc,
+    category: capitalize((raw.kind as string) || "club"),
+    members: (raw.member_count as number) ?? 0,
+    meetingTime: "TBA",
+    established: "—",
+    tags: [],
+    color: DEFAULT_COLORS[index % DEFAULT_COLORS.length],
+    applicationQuestions: [
+      "Why are you interested in joining this club?",
+      "What do you hope to contribute?",
+    ],
+  };
+}
 
 // ─── Confetti ──────────────────────────────────────────────────────────────────
 
@@ -78,9 +104,31 @@ function Confetti() {
 function ClubModal({ club, onClose }: { club: Club; onClose: () => void }) {
   const [form, setForm]         = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [focused, setFocused]   = useState<string | null>(null);
 
   const allAnswered = ["full-name","email",...club.applicationQuestions.map((_,i) => `q${i}`)].every(k => (form[k] ?? "").trim());
+
+  const handleSubmit = async () => {
+    if (!allAnswered || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await apiFetch(`/chat/communities/${club.id}/join`, { method: "POST" });
+      setSubmitted(true);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to submit application";
+      // If already a member, treat as success
+      if (message.toLowerCase().includes("already")) {
+        setSubmitted(true);
+      } else {
+        setSubmitError(message);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div
@@ -120,12 +168,14 @@ function ClubModal({ club, onClose }: { club: Club; onClose: () => void }) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={PRIMARY} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <span style={{ fontSize:12, color:TEXT, fontWeight:500 }}>{club.meetingTime}</span>
           </div>
-          <div>
-            <h3 style={{ fontSize:12, fontWeight:700, color:TEXT, marginBottom:7 }}>Focus Areas</h3>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-              {club.tags.map(t => <span key={t} style={{ fontSize:11, fontWeight:500, color:PRIMARY, background:TAG_BG, border:`1px solid #D0C8A8`, borderRadius:20, padding:"3px 10px" }}>{t}</span>)}
+          {club.tags.length > 0 && (
+            <div>
+              <h3 style={{ fontSize:12, fontWeight:700, color:TEXT, marginBottom:7 }}>Focus Areas</h3>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+                {club.tags.map(t => <span key={t} style={{ fontSize:11, fontWeight:500, color:PRIMARY, background:TAG_BG, border:`1px solid #D0C8A8`, borderRadius:20, padding:"3px 10px" }}>{t}</span>)}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Application */}
           <div style={{ borderTop:`1px solid ${BORDER}`, paddingTop:18 }}>
@@ -159,7 +209,12 @@ function ClubModal({ club, onClose }: { club: Club; onClose: () => void }) {
                     </div>
                   );
                 })}
-                <SubmitBtn allAnswered={allAnswered} onSubmit={()=>setSubmitted(true)} color={club.color} />
+                {submitError && (
+                  <div style={{ fontSize:12, color:"#C0392B", background:"#FDE8E8", border:"1px solid #F5C6CB", borderRadius:7, padding:"8px 12px" }}>
+                    {submitError}
+                  </div>
+                )}
+                <SubmitBtn allAnswered={allAnswered} submitting={submitting} onSubmit={handleSubmit} color={club.color} />
               </div>
             )}
           </div>
@@ -169,12 +224,13 @@ function ClubModal({ club, onClose }: { club: Club; onClose: () => void }) {
   );
 }
 
-function SubmitBtn({ allAnswered, onSubmit, color }: { allAnswered:boolean; onSubmit:()=>void; color:string }) {
+function SubmitBtn({ allAnswered, submitting, onSubmit, color }: { allAnswered:boolean; submitting:boolean; onSubmit:()=>void; color:string }) {
   const [hov,setHov]=useState(false);
+  const disabled = !allAnswered || submitting;
   return (
-    <button onClick={onSubmit} disabled={!allAnswered} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      style={{ alignSelf:"flex-start", padding:"9px 24px", borderRadius:8, border:"none", background:!allAnswered?"#C8C0A8":hov?ORANGE:color, color:"#FFF", fontSize:13, fontWeight:700, cursor:allAnswered?"pointer":"not-allowed", transition:"background 0.15s", fontFamily:"Georgia,serif" }}>
-      Submit Application
+    <button onClick={onSubmit} disabled={disabled} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+      style={{ alignSelf:"flex-start", padding:"9px 24px", borderRadius:8, border:"none", background:disabled?"#C8C0A8":hov?ORANGE:color, color:"#FFF", fontSize:13, fontWeight:700, cursor:disabled?"not-allowed":"pointer", transition:"background 0.15s", fontFamily:"Georgia,serif", opacity:submitting?0.7:1 }}>
+      {submitting ? "Submitting…" : "Submit Application"}
     </button>
   );
 }
@@ -242,11 +298,13 @@ function StackCard({ club, stackIndex, swipeDir }: { club: Club; stackIndex: num
           <p style={{ fontSize: 13, color: TEXT, lineHeight: 1.65, marginBottom: 14 }}>{club.description}</p>
 
           {/* Tags */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 14 }}>
-            {club.tags.map(t => (
-              <span key={t} style={{ fontSize: 10, fontWeight: 500, color: PRIMARY, background: TAG_BG, border: `1px solid #D0C8A8`, borderRadius: 20, padding: "2px 9px" }}>{t}</span>
-            ))}
-          </div>
+          {club.tags.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 14 }}>
+              {club.tags.map(t => (
+                <span key={t} style={{ fontSize: 10, fontWeight: 500, color: PRIMARY, background: TAG_BG, border: `1px solid #D0C8A8`, borderRadius: 20, padding: "2px 9px" }}>{t}</span>
+              ))}
+            </div>
+          )}
 
           {/* Meeting */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, paddingTop: 12, borderTop: `1px solid ${BORDER}` }}>
@@ -262,13 +320,41 @@ function StackCard({ club, stackIndex, swipeDir }: { club: Club; stackIndex: num
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ClubsPage() {
+  const [clubs, setClubs]         = useState<Club[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [openClub, setOpenClub]   = useState<Club | null>(null);
   const [category, setCategory]   = useState("All");
   const [swipeDir, setSwipeDir]   = useState<SwipeDir>(null);
   const [catHov, setCatHov]       = useState<string | null>(null);
 
-  const filtered = CLUBS.filter(c => category === "All" || c.category === category);
+  // Fetch clubs from the API on mount
+  const fetchClubs = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data: Record<string, unknown>[] = await apiFetch("/chat/communities?kind=club&limit=50");
+      const mapped = (data || []).map((raw, i) => mapCommunityToClub(raw, i));
+      setClubs(mapped);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to load clubs";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchClubs();
+  }, [fetchClubs]);
+
+  const categories = useMemo(
+    () => ["All", ...Array.from(new Set(clubs.map(c => c.category)))],
+    [clubs]
+  );
+
+  const filtered = clubs.filter(c => category === "All" || c.category === category);
   const queue    = filtered.filter(c => !dismissed.has(c.id));
 
   const dismiss = (dir: SwipeDir, openModal?: boolean) => {
@@ -297,6 +383,66 @@ export default function ClubsPage() {
 
   const remaining = queue.length;
 
+  // Loading state
+  if (loading) {
+    return (
+      <div style={{ maxWidth: 520, margin: "0 auto" }}>
+        <div style={{ marginBottom: 20 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: TEXT, letterSpacing: "-0.02em" }}>Clubs</h1>
+          <p style={{ fontSize: 13, color: MUTED, marginTop: 3 }}>
+            Swipe through clubs — <strong style={{ color: TEXT }}>✕</strong> to skip, <strong style={{ color: "#E05080" }}>♥</strong> to apply.
+          </p>
+        </div>
+        <div style={{ textAlign: "center", padding: "60px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <div style={{ width: 36, height: 36, border: `3px solid ${BORDER}`, borderTopColor: PRIMARY, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+          <div style={{ fontSize: 14, fontWeight: 600, color: MUTED }}>Loading clubs...</div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div style={{ maxWidth: 520, margin: "0 auto" }}>
+        <div style={{ marginBottom: 20 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: TEXT, letterSpacing: "-0.02em" }}>Clubs</h1>
+          <p style={{ fontSize: 13, color: MUTED, marginTop: 3 }}>
+            Swipe through clubs — <strong style={{ color: TEXT }}>✕</strong> to skip, <strong style={{ color: "#E05080" }}>♥</strong> to apply.
+          </p>
+        </div>
+        <div style={{ textAlign: "center", padding: "60px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <div style={{ fontSize: 40 }}>!</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: TEXT }}>Something went wrong</div>
+          <p style={{ fontSize: 13, color: MUTED, maxWidth: 320 }}>{error}</p>
+          <RetryBtn onClick={fetchClubs} />
+        </div>
+      </div>
+    );
+  }
+
+  // No clubs returned from API
+  if (clubs.length === 0) {
+    return (
+      <div style={{ maxWidth: 520, margin: "0 auto" }}>
+        <div style={{ marginBottom: 20 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: TEXT, letterSpacing: "-0.02em" }}>Clubs</h1>
+          <p style={{ fontSize: 13, color: MUTED, marginTop: 3 }}>
+            Swipe through clubs — <strong style={{ color: TEXT }}>✕</strong> to skip, <strong style={{ color: "#E05080" }}>♥</strong> to apply.
+          </p>
+        </div>
+        <div style={{ textAlign: "center", padding: "60px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <div style={{ fontSize: 40 }}>📋</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: TEXT }}>No clubs found</div>
+          <p style={{ fontSize: 13, color: MUTED, maxWidth: 280 }}>
+            There are no clubs available right now. Check back later!
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: 520, margin: "0 auto" }}>
       {/* Header */}
@@ -309,7 +455,7 @@ export default function ClubsPage() {
 
       {/* Category filter */}
       <div style={{ display: "flex", gap: 6, marginBottom: 28, flexWrap: "wrap" }}>
-        {CATEGORIES.map(cat => {
+        {categories.map(cat => {
           const active = category === cat;
           const hov    = catHov === cat;
           return (
@@ -429,6 +575,16 @@ function ResetBtn({ onClick }: { onClick: () => void }) {
     <button onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ padding:"9px 24px", borderRadius:8, border:"none", background:hov?ORANGE:PRIMARY, color:"#FFF", fontSize:13, fontWeight:700, cursor:"pointer", transition:"background 0.15s", fontFamily:"Georgia,serif" }}>
       Start Over
+    </button>
+  );
+}
+
+function RetryBtn({ onClick }: { onClick: () => void }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ padding:"9px 24px", borderRadius:8, border:"none", background:hov?ORANGE:PRIMARY, color:"#FFF", fontSize:13, fontWeight:700, cursor:"pointer", transition:"background 0.15s", fontFamily:"Georgia,serif" }}>
+      Try Again
     </button>
   );
 }

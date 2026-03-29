@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
+// TODO: When a dedicated GET /research/labs endpoint is built on the backend,
+// replace the apiFetch call below to use that instead of the communities workaround.
+
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 
 const BG       = "#F5F0E4";
 const CARD_BG  = "#FFFDF6";
@@ -34,7 +38,7 @@ interface Lab {
   papers: Paper[];
 }
 
-const LABS: Lab[] = [
+const LABS_DATA: Lab[] = [
   {
     id: "ai-lab",
     name: "Intelligent Systems & AI Lab",
@@ -321,12 +325,47 @@ export default function ResearchLabPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
+  const [labs, setLabs] = useState<Lab[]>(LABS_DATA);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch("/chat/communities?kind=custom&search=lab")
+      .then((data: any) => {
+        if (cancelled) return;
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: Lab[] = data.map((item: any) => ({
+            id: item.id ?? item.name?.toLowerCase().replace(/\s+/g, "-") ?? "unknown",
+            name: item.name ?? "Unnamed Lab",
+            professor: item.professor ?? item.owner ?? "TBD",
+            professorInitials: item.professorInitials ??
+              (item.professor || item.owner || "TB")
+                .split(" ")
+                .map((w: string) => w[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase(),
+            title: item.title ?? "",
+            description: item.description ?? "",
+            areas: item.areas ?? [],
+            university: item.university ?? "UT Dallas",
+            openings: item.openings ?? 0,
+            papers: Array.isArray(item.papers) ? item.papers : [],
+          }));
+          setLabs(mapped);
+        }
+        // If empty or not an array, keep LABS_DATA fallback (already set as initial state)
+      })
+      .catch(() => {
+        // API not available or errored — keep hardcoded fallback
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleChat = (professorName: string) => {
     router.push(`/messages?openThread=${encodeURIComponent(professorName)}`);
   };
 
-  const filtered = LABS.filter(l =>
+  const filtered = labs.filter(l =>
     l.name.toLowerCase().includes(search.toLowerCase()) ||
     l.professor.toLowerCase().includes(search.toLowerCase()) ||
     l.areas.some(a=>a.toLowerCase().includes(search.toLowerCase()))
@@ -355,9 +394,9 @@ export default function ResearchLabPage() {
       {/* Stats bar */}
       <div style={{ display:"flex", gap:16, marginBottom:20, flexWrap:"wrap" }}>
         {[
-          { label:"Total Labs",      value:LABS.length },
-          { label:"Open Positions",  value:LABS.reduce((s,l)=>s+l.openings,0) },
-          { label:"Publications",    value:LABS.reduce((s,l)=>s+l.papers.length,0) },
+          { label:"Total Labs",      value:labs.length },
+          { label:"Open Positions",  value:labs.reduce((s,l)=>s+l.openings,0) },
+          { label:"Publications",    value:labs.reduce((s,l)=>s+l.papers.length,0) },
           { label:"Showing",         value:filtered.length },
         ].map(({label,value})=>(
           <div key={label} style={{ background:CARD_BG, border:`1px solid ${BORDER}`, borderRadius:10, padding:"10px 18px" }}>

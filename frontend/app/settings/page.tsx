@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 const CARD_BG = "#FFFDF6";
 const BORDER  = "#DDD5C0";
@@ -87,10 +88,14 @@ function SelectInput({ value, onChange, options }: { value: string; onChange: (v
   );
 }
 
-function SaveBtn({ label = "Save changes" }: { label?: string }) {
+function SaveBtn({ label = "Save changes", onClick }: { label?: string; onClick?: () => void }) {
   const [hov, setHov] = useState(false);
   const [saved, setSaved] = useState(false);
-  const handleClick = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
+  const handleClick = () => {
+    if (onClick) onClick();
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
   return (
     <button onClick={handleClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
@@ -99,14 +104,14 @@ function SaveBtn({ label = "Save changes" }: { label?: string }) {
         cursor: "pointer", transition: "background 0.15s",
         boxShadow: "0 2px 8px rgba(107,124,45,0.18)",
       }}>
-      {saved ? "Saved ✓" : label}
+      {saved ? "Saved \u2713" : label}
     </button>
   );
 }
 
 export default function SettingsPage() {
-  const [name,       setName]       = useState("Alex Founder");
-  const [email,      setEmail]      = useState("alex@connectedu.com");
+  const [name,       setName]       = useState("");
+  const [email,      setEmail]      = useState("");
   const [university, setUniversity] = useState("UT Dallas");
   const [role,       setRole]       = useState("Founder");
   const [emailNtfy,  setEmailNtfy]  = useState(true);
@@ -115,6 +120,69 @@ export default function SettingsPage() {
   const [publicProfile, setPublicProfile] = useState(true);
   const [showEmail,  setShowEmail]  = useState(false);
   const [theme,      setTheme]      = useState("Parchment (default)");
+
+  const [loading, setLoading]   = useState(true);
+  const [userId, setUserId]     = useState<string | null>(null);
+  const [saving, setSaving]     = useState(false);
+
+  useEffect(() => {
+    async function fetchProfile() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+        setUserId(user.id);
+
+        const { data: profile } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+
+        if (profile) {
+          setName(profile.full_name ?? "");
+          setEmail(profile.email ?? user.email ?? "");
+          setUniversity(profile.college ?? "UT Dallas");
+          setRole(profile.major ?? "Founder");
+        } else {
+          // No profile row yet -- fall back to auth email
+          setEmail(user.email ?? "");
+        }
+      } catch (err) {
+        console.error("Failed to load profile:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProfile();
+  }, []);
+
+  const handleSave = async () => {
+    if (!userId || saving) return;
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      await supabase
+        .from("users")
+        .update({ full_name: name, college: university })
+        .eq("id", userId);
+    } catch (err) {
+      console.error("Failed to save profile:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ maxWidth: 680, margin: "0 auto", padding: "80px 0", textAlign: "center" }}>
+        <div style={{ fontSize: 14, color: MUTED }}>Loading settings...</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 680, margin: "0 auto" }}>
@@ -142,7 +210,7 @@ export default function SettingsPage() {
             </SettingRow>
           </div>
           <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
-            <SaveBtn/>
+            <SaveBtn onClick={handleSave}/>
           </div>
         </SettingCard>
 

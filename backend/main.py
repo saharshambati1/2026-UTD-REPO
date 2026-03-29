@@ -17,6 +17,8 @@ from routers.startups import router as startups_router
 from routers.templates import router as templates_router
 from routers.research import router as research_router
 from routers.community import router as community_router
+from routers.chat import router as chat_router
+from routers.websocket import router as websocket_router
 
 
 
@@ -96,6 +98,8 @@ app.include_router(cofounders_router)
 app.include_router(investors_router)
 app.include_router(research_router)
 app.include_router(community_router)
+app.include_router(chat_router)
+app.include_router(websocket_router)
 
 
 

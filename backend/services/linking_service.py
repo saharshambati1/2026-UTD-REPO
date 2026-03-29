@@ -1,9 +1,6 @@
 from __future__ import annotations
-
 import requests
-
 from core.config import settings
-
 
 class LinkingService:
     def generate_rag(self, payload: dict) -> dict:
@@ -16,5 +13,5 @@ class LinkingService:
         response.raise_for_status()
         return response.json()
 
+# ADD THIS LINE AT THE VERY BOTTOM
 linking_service = LinkingService()
-

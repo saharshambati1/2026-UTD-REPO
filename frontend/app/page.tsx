@@ -225,7 +225,7 @@ function HeroSection() {
         }}>
           The Platform<br/>
           <span style={{ color: OLIVE }}>Built for</span><br/>
-          Tomorrow's<br/>
+          Tomorrow&apos;s<br/>
           Founders.
         </h1>
 
@@ -351,7 +351,7 @@ function QuoteSection() {
           <div style={{ width: 6, height: 6, borderRadius: "50%", background: OLIVE, opacity: 0.4 }}/>
           <div style={{ height: 1, width: 40, background: GOLD, opacity: 0.5 }}/>
         </div>
-        <div style={{ fontSize: 72, color: OLIVE, lineHeight: 0.4, fontFamily: "Georgia, serif", marginBottom: 28, opacity: 0.35 }}>"</div>
+        <div style={{ fontSize: 72, color: OLIVE, lineHeight: 0.4, fontFamily: "Georgia, serif", marginBottom: 28, opacity: 0.35 }}>&quot;</div>
         <blockquote style={{
           fontFamily: "var(--font-editorial, Georgia), Georgia, serif",
           fontSize: "clamp(20px, 2.8vw, 30px)",

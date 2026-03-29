@@ -3,9 +3,9 @@ from __future__ import annotations
 from core.database import get_supabase
 from services.startup_service import startup_service
 
-supabase = get_supabase()
 class CofounderService:
     def search_cofounders(self, user_id: str, payload):
+        supabase = get_supabase()
         startup = startup_service.get_startup_profile(payload.startup_profile_id)
 
         users_res = (

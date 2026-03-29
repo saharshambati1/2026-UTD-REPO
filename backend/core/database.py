@@ -1,16 +1,16 @@
 from supabase import create_client, Client
-from core.config import get_settings
+from core.config import settings
 from functools import lru_cache
 from typing import Optional
 
-settings = get_settings()
+
 
 @lru_cache
 def get_supabase() -> Client:
     # Uses the service_role_key to bypass RLS for backend operations
     return create_client(
-        settings.supabase_url,
-        settings.supabase_service_role_key
+        settings.SUPABASE_URL,
+        settings.SUPABASE_SERVICE_ROLE_KEY,
     )
 
 def execute_rpc(function_name: str, params: dict) -> list:

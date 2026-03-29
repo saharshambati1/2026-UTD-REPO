@@ -3,9 +3,9 @@ from __future__ import annotations
 from core.database import get_supabase
 from core.errors import BadRequestError
 
-supabase = get_supabase()
 class TemplateService:
     def list_templates(self):
+        supabase = get_supabase()
         res = (
             supabase.table("templates")
             .select("id,name,description,distribution_channel,created_at")
@@ -17,6 +17,7 @@ class TemplateService:
     def get_templates_by_ids(self, template_ids: list[str]):
         if not template_ids:
             return []
+        supabase = get_supabase()
         res = (
             supabase.table("templates")
             .select("id,name,description,distribution_channel")

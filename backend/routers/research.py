@@ -1,6 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from services.research_service import ResearchService
-from schemas import EmailGenerationRequest 
 
 router = APIRouter(prefix="/research", tags=["Research Hub"])
 

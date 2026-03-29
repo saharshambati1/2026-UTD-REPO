@@ -42,6 +42,7 @@ class InvestorService:
         }
 
     def match_investors(self, user_id: str, payload):
+        supabase = get_supabase()
         startup = startup_service.get_startup_profile(payload.startup_profile_id)
         investors = self.list_investors(limit=max(payload.limit * 5, 25))
 

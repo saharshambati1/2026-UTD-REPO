@@ -2,11 +2,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
-from slowapi.errors import RateLimitExceeded
 import time
 import traceback
-from core.config import get_settings
-from core.cache import get_redis
+from core.config import settings
 from core.database import get_supabase
 from RAG.ragchat import router as rag_router
 from routers.compare import router as compare_router
@@ -20,14 +18,13 @@ from routers.community import router as community_router
 
 
 
-settings = get_settings()
 
 # Base Setup
 app = FastAPI(
     title="Folia API",
     description="Financial intelligence backend — RAG advisor, simulators, tax engine, and market data.",
     version="1.0.0",
-    docs_url="/docs" if settings.debug else None,
+    docs_url="/docs",
     redoc_url=None, 
 )
 
@@ -39,7 +36,6 @@ app.add_middleware(
     CORSMiddleware, 
     allow_origins=[
         "http://localhost:3000",
-        settings.frontend_url,
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -119,16 +115,7 @@ async def health_check():
         checks["database"] = "ok"
     except Exception as e:
         checks["database"] = f"error: {e}"
- 
-    try:
-        r = await get_redis()
-        if r:
-            await r.ping()
-            checks["redis"] = "ok"
-        else:
-            checks["redis"] = "not configured"
-    except Exception as e:
-        checks["redis"] = f"error: {e}"
+
  
  
     checks["sendgrid"] = "configured" if settings.sendgrid_api_key else "not configured"

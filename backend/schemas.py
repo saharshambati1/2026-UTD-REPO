@@ -164,7 +164,7 @@ class TemplateListItem(BaseModel):
 
 
 class TemplateCompareRequest(BaseModel):
-    template_ids: list[str]
+    template_ids: List[str]
 
 class StartupProfileCreateRequest(BaseModel):
     organization_id: str
@@ -184,21 +184,21 @@ class StartupProfileCreateRequest(BaseModel):
 
 class StartupTemplateSelectionRequest(BaseModel):
     startup_profile_id: str
-    template_ids: list[str] = Field(default_factory=list)
+    template_ids: List[str] = Field(default_factory=list)
     selection_reason: str = ""
 
 class RoadmapGenerateRequest(BaseModel):
     startup_profile_id: str
-    template_ids: list[str] = Field(default_factory=list)
+    template_ids: List[str] = Field(default_factory=list)
     custom_goal: str = "Build product, validate distribution, and prepare for investors"
     
 class StartupCompareRequest(BaseModel):
     startup_profile_id: str
-    template_ids: list[str] = Field(default_factory=list)
+    template_ids: List[str] = Field(default_factory=list)
 
 class CofounderSearchRequest(BaseModel):
     startup_profile_id: str
-    needed_roles: list[str] = Field(default_factory=list)
+    needed_roles: List[str] = Field(default_factory=list)
     limit: int = 10
 
 class InvestorMatchRequest(BaseModel):

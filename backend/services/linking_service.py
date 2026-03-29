@@ -16,3 +16,5 @@ class LinkingService:
         response.raise_for_status()
         return response.json()
 
+linking_service = LinkingService()
+

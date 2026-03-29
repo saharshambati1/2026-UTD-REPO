@@ -3,12 +3,12 @@ from __future__ import annotations
 from core.database import get_supabase
 from core.errors import NotFoundError
 from services.linking_service import linking_service
-from backend.services.template_service import startup_service
+from services.startup_service import startup_service
 from services.template_service import template_service
 
-supabase = get_supabase()
 class CompareService:
     def compare_startup_to_templates(self, user_id: str, payload):
+        supabase = get_supabase()
         startup = startup_service.get_startup_profile(payload.startup_profile_id)
         templates = template_service.get_templates_by_ids(payload.template_ids)
         if not templates:

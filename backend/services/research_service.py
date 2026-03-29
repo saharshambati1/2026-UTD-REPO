@@ -1,10 +1,9 @@
-from rag.processor import extract_text_from_pdf, get_embedding
+from RAG.processor import extract_text_from_pdf, get_embedding
 from core.database import execute_rpc, select_rows, insert_rows, upsert_rows
 from openai import OpenAI
-from core.config import get_settings
+from core.config import settings
 
-settings = get_settings()
-client = OpenAI(api_key=settings.openai_api_key)
+client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 class ResearchService:
     @staticmethod

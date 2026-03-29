@@ -1,44 +1,72 @@
 from __future__ import annotations
 
 from core.database import get_supabase
-from core.errors import BadRequestError
+from core.errors import NotFoundError
 
-supabase = get_supabase()
-class TemplateService:
-    def list_templates(self):
-        res = (
-            supabase.table("templates")
-            .select("id,name,description,distribution_channel,created_at")
-            .order("created_at", desc=True)
-            .execute()
-        )
-        return res.data or []
 
-    def get_templates_by_ids(self, template_ids: list[str]):
-        if not template_ids:
-            return []
-        res = (
-            supabase.table("templates")
-            .select("id,name,description,distribution_channel")
-            .in_("id", template_ids)
-            .execute()
-        )
-        return res.data or []
-
-    def compare_templates(self, template_ids: list[str]):
-        if len(template_ids) < 2:
-            raise BadRequestError("Select at least 2 templates to compare")
-
-        templates = self.get_templates_by_ids(template_ids)
-        comparison = []
-        for row in templates:
-            comparison.append({
-                "id": row["id"],
-                "name": row["name"],
-                "description": row["description"],
-                "distribution_channel": row["distribution_channel"],
+class StartupService:
+    def create_startup_profile(self, user_id: str, payload):
+        supabase = get_supabase()
+        result = (
+            supabase.table("startup_profiles")
+            .insert({
+                "organization_id": payload.organization_id,
+                "created_by": user_id,
+                "idea_name": payload.idea_name,
+                "one_liner": payload.one_liner,
+                "problem": payload.problem,
+                "target_customer": payload.target_customer,
+                "industry": payload.industry,
+                "business_model": payload.business_model,
+                "distribution_channel": payload.distribution_channel,
+                "funding_stage": payload.funding_stage,
+                "current_stage": payload.current_stage,
+                "product_state": payload.product_state,
+                "traction_summary": payload.traction_summary,
+                "goals_20_weeks": payload.goals_20_weeks,
             })
-        return {"templates": comparison}
+            .execute()
+        )
+        return result.data[0]
+
+    def get_startup_profile(self, startup_profile_id: str):
+        supabase = get_supabase()
+        res = (
+            supabase.table("startup_profiles")
+            .select("*")
+            .eq("id", startup_profile_id)
+            .limit(1)
+            .execute()
+        )
+        if not res.data:
+            raise NotFoundError("Startup profile not found")
+        return res.data[0]
+
+    def save_template_selections(self, user_id: str, payload):
+        supabase = get_supabase()
+        records = []
+        for template_id in payload.template_ids:
+            records.append({
+                "startup_profile_id": payload.startup_profile_id,
+                "template_id": template_id,
+                "selected_by": user_id,
+                "selection_reason": payload.selection_reason,
+            })
+
+        if records:
+            supabase.table("startup_template_selections").upsert(records).execute()
+
+        selected = (
+            supabase.table("startup_template_selections")
+            .select("id,startup_profile_id,template_id,selection_reason,created_at")
+            .eq("startup_profile_id", payload.startup_profile_id)
+            .execute()
+        )
+        return selected.data or []
 
 
-template_service = TemplateService()
+startup_service = StartupService()
+
+
+
+
